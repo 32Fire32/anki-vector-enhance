@@ -1,0 +1,16 @@
+TableName,Description
+RobotStates,"Posizione, movimento, assetto robot"
+RobotFaces,Volti osservati dal robot
+WakeWordEvents,Attivazione tramite 'Hey Vector'
+UserIntents,Comandi vocali interpretati
+CubeTaps,Tap rilevati sul cubo
+ObjectMovementEvents,Movimento oggetti osservato
+ObjectOrientationChanges,Cambio asse cubo
+ObservedObjects,Oggetti visti da Vector
+CubeConnections,Stato connessione al cubo
+CubeConnectionLosses,Perdita connessione cubo
+MirrorModeEvents,Disabilitazione mirror mode
+VisionModeEvents,Disabilitazione visione automatica
+CameraImages,Cattura immagini dalla fotocamera (opzionale)
+NavMapUpdates,Aggiornamenti navigazione interna (opzionale)
+AudioModeChanges,Cambio modalità audio

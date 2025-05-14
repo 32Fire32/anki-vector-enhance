@@ -1,0 +1,76 @@
+**📅 STATO AVANZAMENTO PROGETTO VECTOR – 30 Aprile 2025**
+
+---
+
+### 🧭 OBIETTIVI DEL PROGETTO
+
+**Fase 1: Raccolta e archiviazione dei dati sensoriali di Vector**
+- Connessione al robot tramite SDK
+- Ascolto di eventi dai sensori
+- Salvataggio degli eventi in un database SQL Server esterno
+
+**Fase 2: Elaborazione intelligente**
+- Analisi dei dati raccolti
+- Sviluppo di un sistema di simulazione emozionale permanente e collegato a utenti diversi
+- Apprendimento del contesto da parte di Vector
+
+**Fase 3: Esperienza interattiva evoluta**
+- Riconoscimento oggetti avanzato tramite computer vision
+- Memoria a lungo termine degli stimoli
+- Interazione conversazionale complessa
+
+---
+
+### ✅ ATTIVITÀ COMPLETATE
+
+**🔌 Connessione SDK con Vector:**
+- SDK aggiornato e configurato
+- Connessione funzionante via certificato SSL e seriale
+- Debug completato per riconnessioni e problemi di IP dinamico
+
+**📦 Raccolta dati da sensori (con salvataggio su SQL Server):**
+| Evento | Tabella | Stato |
+|--------|---------|-------|
+| `robot_state` | `RobotStates` | ✅ Completato
+| `robot_observed_face` | `RobotFaces` | ✅ Completato
+| `user_intent` | `UserIntents` | ✅ Completato
+| `robot_observed_object` | `ObservedObjects` | ✅ Completato
+| `nav_map_update` | NavMapUpdates| ✅ Completato
+
+**🧪 Test falliti o da rivedere:**
+- `wake_word`: il trigger non viene emesso in modo stabile
+- `object_tapped`: dipende da uno specifico stato del cubo (possibile problema hardware)
+
+**📦 Riconoscimento oggetti tramite Yolov5n:**
+
+---
+
+### 🔜 PROSSIME AZIONI
+
+--- Ora che ho il codice adatto per implementare su Vector le funzioni di:
+	- registrazione eventi: 
+		- mappa ambientale
+		- posizione del robot
+		- intent dell'utente (non funziona benissimo)
+		- oggetti osservati (quelli che vector riceve dalle sue funzioni di base)
+		- oggetti osservati tramite Yolov5n
+	bisogna:
+		- capire se c'è un modo di 
+	
+
+### 💬 NOTE STRATEGICHE / COMMENTI PERSONALI
+
+- Il progetto sta dimostrando che **Vector ha una sensoristica molto potente** ma **è limitato senza supporti esterni**.
+- La scelta di **usare un database esterno** è corretta e garantisce scalabilità e tracciabilità.
+- In futuro sarà utile integrare Vector con un **motore AI (es. GPT, LangChain, RAG)** per permettere:
+  - Memoria conversazionale
+  - Comprensione evoluta del contesto
+  - Simulazione emozionale credibile
+
+
+---
+
+📁 File aggiornato il 04/05/2025
+
+---
+
