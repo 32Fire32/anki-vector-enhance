@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://vector-sdk/schemas/animation-mapping.json",
+  "title": "Vector Animation Mapping Schema",
+  "description": "Schema for validating animation observations and emotion mappings",
+  "definitions": {
+    "animationName": {
+      "type": "string",
+      "pattern": "^(?:anim_[a-z0-9_]+|[A-Z][A-Za-z0-9_]+)$",
+      "maxLength": 100,
+      "description": "Animation trigger name. Accepts SDK-style 'anim_*' (e.g., anim_pounce_success_02) or documented CamelCase/underscore triggers (e.g., AlreadyAtFace, BlackJack_Quit)"
+    },
+    "humanReadableName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9 _\\-'àèéìòù]+$",
+      "minLength": 3,
+      "maxLength": 50,
+      "description": "Human-readable name in Italian (3-50 chars, alphanumeric + spaces, dashes, apostrophes, Italian accents)"
+    },
+    "safetyLevel": {
+      "type": "string",
+      "enum": ["safe", "sensitive", "unknown"],
+      "description": "Safety classification: safe (always appropriate), sensitive (context-dependent), unknown (not yet classified)"
+    },
+    "emotionCategory": {
+      "type": "string",
+      "enum": [
+        "joy",
+        "sadness",
+        "anger",
+        "fear",
+        "surprise",
+        "disgust",
+        "contentment",
+        "excitement",
+        "curiosity",
+        "confusion",
+        "frustration",
+        "affection",
+        "pride",
+        "shame",
+        "neutral"
+      ],
+      "description": "Standard emotion categories for mapping"
+    },
+    "animationObservation": {
+      "type": "object",
+      "required": ["trigger", "name", "description", "safety", "observed_date"],
+      "properties": {
+        "trigger": {
+          "$ref": "#/definitions/animationName"
+        },
+        "name": {
+          "$ref": "#/definitions/humanReadableName"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200,
+          "description": "Detailed description of what Vector does during the animation"
+        },
+        "safety": {
+          "$ref": "#/definitions/safetyLevel"
+        },
+        "observed_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Date when animation was observed (YYYY-MM-DD)"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Optional additional notes about timing, context, or behavior"
+        }
+      },
+      "additionalProperties": false
+    },
+    "animationCandidate": {
+      "type": "object",
+      "required": ["trigger", "weight"],
+      "properties": {
+        "trigger": {
+          "$ref": "#/definitions/animationName"
+        },
+        "weight": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Probability weight for random selection (0.0-1.0)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "emotionMapping": {
+      "type": "object",
+      "required": ["emotion", "candidates", "selection_strategy"],
+      "properties": {
+        "emotion": {
+          "$ref": "#/definitions/emotionCategory"
+        },
+        "candidates": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/animationCandidate"
+          },
+          "description": "List of animation candidates with weights (must sum to 1.0)"
+        },
+        "selection_strategy": {
+          "type": "string",
+          "enum": ["weighted_random", "sequential", "random"],
+          "default": "weighted_random",
+          "description": "How to select from candidates"
+        },
+        "context_filters": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional context requirements (e.g., 'safe_only', 'high_energy')"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "oneOf": [
+    {
+      "title": "Animation Observations File",
+      "type": "object",
+      "required": ["schema_version", "observations"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "1.0",
+          "description": "Schema version for compatibility checking"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/animationObservation"
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "created_date": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "last_updated": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "operator": {
+              "type": "string",
+              "description": "Person who conducted observations"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "title": "Emotion Animation Mapping File",
+      "type": "object",
+      "required": ["schema_version", "mappings"],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "1.0",
+          "description": "Schema version for compatibility checking"
+        },
+        "mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/emotionMapping"
+          }
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "generated_date": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "source_file": {
+              "type": "string",
+              "description": "Path to observations file used to generate mappings"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

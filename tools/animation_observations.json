@@ -1,0 +1,346 @@
+{
+  "schema_version": "1.0",
+  "observations": [
+    {
+      "trigger": "AlreadyAtFace",
+      "name": "gioia",
+      "description": "vector è felice e allegro se vede o sente qualcosa che gli piace",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "AudioOnlyHuh",
+      "name": "confuso",
+      "description": "non capisce bene quello che ha visto ho sentito",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BlackJack_Quit",
+      "name": "disappunto",
+      "description": "non è d'accordo con quello che ha visto o sentito",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BlackJack_RtpIdle",
+      "name": "Aspettare",
+      "description": "E' in attesa che l'utente risponda o che accada qualcosa",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BlackJack_RtpPlayerYes",
+      "name": "Gioia veloce",
+      "description": "un veloce sguardo di gioia all'utente",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BlackJack_VictorBlackJackWin",
+      "name": "Vittoria",
+      "description": "vector è contento perchè ha vinto o ha indovinato qualcosa",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BlackJack_VictorLose",
+      "name": "Sconfitta",
+      "description": "Vector non è contento perchè ha perso o non ha indovinato",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BumpObjectFastGetIn",
+      "name": "Avvicinamento",
+      "description": "Se vector vede un oggetto interessante un pò lontano si avvicina velocemente",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BumpObjectFastGetOut",
+      "name": "Diffidenza",
+      "description": "se vector vede o sente qualcosa che non sa bene cosa sia si allontana",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BumpObjectSlowGetIn",
+      "name": "Approccio lento",
+      "description": "Vector vede qualcosa di interessante e si avvicina lentamente",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "BumpObjectSlowGetOut",
+      "name": "Diffidenza lento",
+      "description": "Vector vede qualcosa che non gli piace e si allontana lentamente",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingAlreadyHere",
+      "name": "Confuso",
+      "description": "Vector non capisce dove si trova",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingDrivingEnd",
+      "name": "Batte paletta",
+      "description": "Vector batte piano la paletta che ha davanti quando vede qualcosa",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingDrivingStart",
+      "name": "Guarda giù",
+      "description": "Vector guarda verso il basso",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingRaiseLift",
+      "name": "Batte paletta 2",
+      "description": "Vector batte la paletta che rimane a mezz'aria",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingRequestGetout",
+      "name": "Triste",
+      "description": "Vector fa un beep triste e guarda verso il basso",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingRequestWaitLoop",
+      "name": "Attesa risposta",
+      "description": "Vector aspetta che l'utente risponda ad una sua domanda",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ChargerDockingSearchSingleTurn",
+      "name": "Cerca sinistra",
+      "description": "Vector cerca qualcosa che sta a sinistra, girandosi e sgranando gli occhi",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ComeHereStart",
+      "name": "Guarda in alto",
+      "description": "Vector guarda in alto improvvisamente poi guarda giù",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ComeHereSuccess",
+      "name": "Molta gioia",
+      "description": "Vector è entusiasta di quello che ha visto, sentito ho fatto assumendo una espressione molto felice",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectToCubeFailure",
+      "name": "Triste 3",
+      "description": "Vector è triste per qualcosa. Fa anche dei beep che evidenziano lo stato triste e assume una espressione abbattuta",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectToCubeGetIn",
+      "name": "Pensando",
+      "description": "Vector sta pensando alla sua prossima mossa",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectToCubeLoop",
+      "name": "Concentrato",
+      "description": "Vector è concentrato e ha gli occhi piccoli che tremano per lo sforzo",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectToCubeLostConnection",
+      "name": "Disorientato",
+      "description": "Vector non ha ben capito e questo lo fa un pò arrabbiiare",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectToCubeSuccess",
+      "name": "Successo",
+      "description": "Vector festeggia per qualcosa che ha fatto o per qualcosa che gli è stato detto agitando la paletta e assumendo una espressione felice",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectWakeUp",
+      "name": "Sveglia",
+      "description": "Vector si sveglia dopo aver dormito",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "ConnectWakeUpLights",
+      "name": "Sveglia 2",
+      "description": "Un altro modo di svegliarsi un pò più brusco",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CountingFastLoop",
+      "name": "Calcolo",
+      "description": "Vector fa dei calcoli e ci sono dei beep veloci che fanno capire che sta pensando velocemente",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CountingGetInEven",
+      "name": "Calcoli 2",
+      "description": "Vector fa dei calcoli e ci sono dei beep veloci che fanno capire che sta pensando velocemente",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CubePounceBackup",
+      "name": "Attenzione",
+      "description": "Vector vede qualcosa di cui non si fida, fa un passo indietro e alza la paletta",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CubePounceGetReady",
+      "name": "Dammi 5",
+      "description": "Vector alza la paletta e aspetta che l'utente gli dia il 5",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CubePouncePounceNormal",
+      "name": "Battuta con paletta",
+      "description": "Vector vede qualcosa davanti a lui e prova a colpirlo con la paletta",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "CubePounceWinSession",
+      "name": "Soddisfatto",
+      "description": "Vector agita la testa e la paletta con allegria perchè contento di qualcosa",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DanceBeatCantDoThat",
+      "name": "Perplesso",
+      "description": "Vector non ha capito cosa deve fare o rispondere",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DanceBeatGetOut",
+      "name": "Negativo gentile",
+      "description": "Vector scuote la testa per dire di no ma in modo allegro",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DanceBeatListening",
+      "name": "Ascolto",
+      "description": "Vector alza la testa e apre gli occhi mentre qualcuno parla",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DriveEndDefault",
+      "name": "In attesa",
+      "description": "Vector sbatte gli occhi e abbassa la testa",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DriveLoopAngry",
+      "name": "Amareggiato",
+      "description": "Vector è un pò arrabbiato per qualcosa che ha visto o sentito. Abbassa gli occhi e ha una espressione arrabbiata",
+      "safety": "safe",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DriveOffChargerStraight",
+      "name": "Guida stanco",
+      "description": "Vector cammina avanti piano mentre sta per addormentarsi. La testa si abbassa e gli occhi si chiudono. Poi si sveglia",
+      "safety": "sensitive",
+      "observed_date": "2025-12-28"
+    },
+    {
+      "trigger": "DriveStartAngry",
+      "name": "Offeso",
+      "description": "Vector abbassa la testa e socchiude gli occhi per fare l'offeso",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringHuhClose",
+      "name": "Sussulto",
+      "description": "Vector retrocede brevemente e fa su e giu con la testa",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringHuhFar",
+      "name": "Guarda su",
+      "description": "Vector fa un passo avanti e guarda in alto",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringLookAround",
+      "name": "Si guarda attorno",
+      "description": "Vector si gira di qua e di la e alza la testa per vedere ch c'è",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringLookAtHuman",
+      "name": "Osserva",
+      "description": "Vector alza la testa, socchiude gli occhi, batte la paletta e fa una espressione allegra",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringQuickScan",
+      "name": "Perlustrare",
+      "description": "Vector si gira a destra e a sinistra, gli occhi vibrano e fa un beep continuo come uno scanner attivo",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringReactToHandGetOut",
+      "name": "Impaurito",
+      "description": "Vector guarda a terra, alza la paletta e retrocede velocemente",
+      "safety": "sensitive",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringReactToHandLift",
+      "name": "Avvicinamento felice",
+      "description": "Vector fa una espressione gioisa, si avvicina e alza e abbassa la paletta",
+      "safety": "sensitive",
+      "observed_date": "2025-12-29"
+    },
+    {
+      "trigger": "ExploringReactToHandReaction",
+      "name": "Fusa 1",
+      "description": "Vector fa una espressione felice e fa dei beep che assomigliano alle fusa di un gatto",
+      "safety": "safe",
+      "observed_date": "2025-12-29"
+    }
+  ],
+  "metadata": {
+    "created_date": "2025-12-28T09:21:52.019289",
+    "last_updated": "2025-12-29T07:51:02.525489",
+    "operator": "nicola"
+  }
+}

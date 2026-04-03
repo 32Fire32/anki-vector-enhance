@@ -1,0 +1,3425 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "generated_date": "2025-12-28T08:58:38.506408",
+    "source_directory": "vector_docs",
+    "extraction_method": "documentation_scan",
+    "total_triggers": 568
+  },
+  "triggers": [
+    {
+      "trigger": "AlexaError2Idle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaErrorLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaIdle2Listen",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaIdle2Speak",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaListen2Error",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaListen2Idle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaListen2Speak",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaListen2Think",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaListenLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaNotification",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaSignOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaSpeak2Error",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaSpeak2Idle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaSpeak2Listen",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaSpeakLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaThink2Error",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaThink2Idle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaThink2Speak",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlexaThinkLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AlreadyAtFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "AudioOnlyHuh",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Deal",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_GetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_GoodLuck",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Idle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Quit",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Response",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_RtpIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_RtpPlayerNo",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_RtpPlayerYes",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_RtpRequest",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_RtpTimeOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_SpeechGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Spread",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_Swipe",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorBlackJackLose",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorBlackJackWin",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorBust",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorLose",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorPush",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BlackJack_VictorWin",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectFastGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectFastGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectFastLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectSlowGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectSlowGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "BumpObjectSlowLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Carrying",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingAlreadyHere",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingDrivingEnd",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingDrivingLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingDrivingStart",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingFailure",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingLeftTurn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingRaiseLift",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingRequest",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingRequestGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingRequestWaitLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingRightTurn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSearchAfterCompletedSearch",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSearchSingleTurn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSearchSingleTurnEnd",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSearchWaitForImages",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSettle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerDockingSevereRequest",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ChargerReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ClockGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ClockGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ComeHereStart",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ComeHereSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectToCubeFailure",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectToCubeGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectToCubeLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectToCubeLostConnection",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectToCubeSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectWakeUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ConnectWakeUpLights",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Connected",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CountingFastLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CountingGetInEven",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CountingGetInOdd",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CountingGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CountingSlowLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceBackup",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceDriveGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceDriveGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceDriveLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceFake",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceGetOutBored",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceGetReady",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceGetUnready",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceIdleLiftDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceIdleLiftUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceLoseHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceLoseSession",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePouncePlayerLose",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePouncePlayerWin",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePouncePounceNormal",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceReactToCube",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceWinHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "CubePounceWinSession",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_AcknowledgeFaceNamed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_AcknowledgeFaceUnnamed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_AcknowledgeObject",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_ComeHere_SearchForFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_CubeMovedSense",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_CubeMovedUpset",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyReactionHard",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyReactionMedium",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyReactionSoft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyShakeLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyShakeStop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_DizzyStillPickedUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserAcknowledge",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserDriveEnd",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserDriveLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserDriveStart",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LaserPounce",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_LookDownForLaser",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_NamedFaceInitialGreeting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_SearchForFace_FoundFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_SearchForFace_Search",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DEPRECATED_StackBlocksSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatCantDoThat",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatEyeHold",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatGetReady",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatListening",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DanceBeatNoBeatDetected",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DealerCardLayout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DockEndDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DockLoopDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DockStartDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveEndAngry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveEndDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveEndHappy",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveEndLaunch",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveLoopAngry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveLoopDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveLoopHappy",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveLoopLaunch",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveOffChargerFarLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveOffChargerFarRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveOffChargerLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveOffChargerRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveOffChargerStraight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveStartAngry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveStartDefault",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveStartHappy",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DriveStartLaunch",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "DrivingTo",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringHuhClose",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringHuhFar",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringLookAround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringLookAtHuman",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringQuickScan",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringReactToHandDrive",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringReactToHandGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringReactToHandGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringReactToHandLift",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringReactToHandReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringScanCenterFromLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringScanCenterFromRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ExploringScanToRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "EyeColorGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "EyeColorGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "EyeColorIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "EyeColorSwitch",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "EyeContactLookLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FacePlantRoll",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FacePlantRollArmUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FailedToRightFromFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Feedback_Apology",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Feedback_BadRobot",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Feedback_GoodRobot",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Feedback_ILoveYou",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Feedback_MeanWords",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FetchCubeFailure",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FetchCubeSetDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FetchCubeSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FindCubeReactToCube",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FindCubeTurns",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FindCubeWaitLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FistBumpIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FistBumpLeftHanging",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FistBumpRequestOnce",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FistBumpRequestRetry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FistBumpSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Flash",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FlipDownFromBack",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FoundFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "FrustratedByFailureMajor",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GatherCubesAllCubesInBeacon",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GatherCubesCubeInBeacon",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtFacesGetInLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtFacesTurnLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtFacesTurnRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtSurfaceReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtSurfaceTurnLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtSurfacesGetInLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtSurfacesGetInRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtSurfacesTurnRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GazingLookAtVectorReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GoToSleepOff",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "GreetAfterLongTime",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmEdgeNervous",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmEdgeRelaxed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmGetInNervous",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmGetInRelaxed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmLookingNervous",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmNestling",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmPickupNervous",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmPickupRelaxed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmPutDownNervous",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmPutDownRelaxed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmReactToJolt",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmRollOff",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "HeldOnPalmTransitionToRelaxed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ICantDoThat",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Idle_09",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InteractWithFaceTrackingIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InteractWithFacesInitialNamed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InteractWithFacesInitialUnnamed",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Interacting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InteractingBehaviorLock",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InvestigateHeldCubeGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InvestigateHeldCubeGetOutBored",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InvestigateHeldCubeGetOutCubeLost",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InvestigateHeldCubeOnSetDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "InvestigateHeldCubeTrackingLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphAnswer",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphListening",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSearching",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSearchingFail",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSearchingFailGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSearchingGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSearchingGetOutSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "KnowledgeGraphSuccessReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookAround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookAtDevice",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookAtDeviceGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookAtDeviceGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookAtUserEndearingly",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookInPlaceForFacesBodyPause",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookInPlaceForFacesBodyPause_Active",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LookInPlaceForFacesHeadMovePause",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "LowBattery",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictor",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorConfusion",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorDuplicateName",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorLookFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorLookFaceInterrupt",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorSawWrongFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorSayName",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MeetVictorSayNameAgain",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MessagingMessageDeletedShort",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MessagingMessageGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MessagingMessageLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MessagingMessageRecordReaction",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MessagingMessageRewind",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MovementDriveBackward",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MovementDriveForward",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MovementTurnAround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MovementTurnLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "MovementTurnRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Muted",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "NeutralFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "NothingToDoBoredIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingIdleWithHeadLookingStraight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingIdleWithHeadLookingUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingLookStraight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingLookUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingOnCharger",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingOnChargerGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ObservingOnChargerGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Off",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Offline",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Offline_Off",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Onboarding",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingComeHere",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingComeHereGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingCubeDriveGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingCubeDriveLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingCubeHuh",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingDriveOffCharger",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingDriveOffCharger_1p0",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingListenGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingListenGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAtPhoneDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAtPhoneLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAtPhoneUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAtUser",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookAtUserGetOut_1p0",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingLookForCube",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingReactToFaceHappy",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingWakeUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingWakeWordGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "OnboardingWakeWordSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PRDemoGreeting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingBlissGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingBlissLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel1",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel1Getout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel2",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel2Getout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel3",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel3Getout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel4",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PettingLevel4Getout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PickupCubePreperation",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PickupCubeRetry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PickupCubeSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlaceCubeByChargerFail",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlaceCubeByChargerReactToCharger",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlanningGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlanningGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlanningLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PlayerCardLayout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PokeObjectDriveLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PokeObjectGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PokeObjectGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PopAWheelieInitial",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PopAWheeliePreActionNamedFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PopAWheeliePreActionUnnamedFace",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PopAWheelieRealign",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PopAWheelieRetry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PounceFail",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PounceSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PounceWProxForward",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PutDownBlockKeepAlive",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "PutDownBlockPutDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_120Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_120Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_150Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_150Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_30Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_30Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_60Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_60Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_Ambient",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_Back",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_Front",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Awake_Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_120Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_120Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_150Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_150Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_30Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_60Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_60Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_Ambient",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_Back",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_Front",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OffCharger_Sleep_Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_120Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_120Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_150Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_150Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_30Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_30Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_60Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_60Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_Ambient",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_Back",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_Front",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Awake_Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_120Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_120Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_150Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_150Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_30Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_30Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_60Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_60Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_Ambient",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_Back",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_Front",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_Left",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RTS_OnCharger_Sleep_Right",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffBack",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffBackLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffBackRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffFront",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffFrontLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffFrontRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnLeft120",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnLeft180",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnLeft60",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnRight120",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnRight180",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCliffTurnRight60",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeSearchForCubeLvl1",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeSearchForCubeLvl2",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeSearchForCubeLvl3",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapCubeFound",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapCubeNotFound",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapCubeTappedLvl1",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapCubeTappedLvl2",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapCubeTappedLvl3",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapInteractionGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToCubeTapInteractionLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToDarkness",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToGoodBye",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToGoodMorning",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToGoodNight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToGreeting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToHabitat",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionLeftGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionRightGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionTurnLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionTurnRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionUp",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToMotionUpGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToObstacle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnLeftSideGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnLeftSideLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnRightSideGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnRightSideLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnSideEffort",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToOnSideGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToPerchedOnBlock",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToPickupInitial",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToPickupLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToPutDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShakeSnowGlobe_GetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShakeSnowGlobe_Lvl1InHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShakeSnowGlobe_Lvl1Loop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShakeSnowGlobe_Lvl1OnGround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShakeSnowGlobe_Lvl1Waiting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_GetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl1InHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl1Loop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl1OnGround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl1Waiting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl2InHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl2Loop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl2OnGround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl2Waiting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl3InHand",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl3Loop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl3OnGround",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToShake_Lvl3Waiting",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTouchInitial",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerBehind",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerBehindLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerFrontLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerFrontRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerLeft",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToTriggerWordOffChargerRight",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToUnclaimedIntent",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToUnclaimedIntentInAir",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ReactToUnexpectedMovement",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RollBlockRealign",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RollBlockRetry",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "RollBlockSuccess",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SeasonalHappyHolidays",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SeasonalHappyNewYear",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "ShutDown",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Sleep",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SleepNoFade",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SoundOnlyLiftEffortPickup",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SoundOnlyLiftEffortPlaceHigh",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SoundOnlyLiftEffortPlaceLow",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SoundOnlyLiftEffortPlaceRoll",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpeedTapLose",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpeedTapWin",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueCelebration",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueCycle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueHoldTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueLockIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueLocked",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueLockedPulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerBlueSelectTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenCelebration",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenCycle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenHoldTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenLockIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenLocked",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerGreenLockedPulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPlayerError",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleCelebration",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleCycle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleHoldTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleLockIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleLocked",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleLockedPulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerPurpleSelectTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedCelebration",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedCycle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedHoldTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedLockIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedLocked",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedLockedPulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerRedSelectTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerStartGame",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowCelebration",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowCycle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowHoldTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowLockIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowLocked",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowLockedPulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SpinnerYellowSelectTarget",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Streaming",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeLeftGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeLeftIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeRightGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "StuckOnEdgeRightIdle",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "SuccessfulWheelie",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TakeAPictureCapture",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TakeAPictureFocusing",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TapResponsePulse",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TemperatureNegDoubleDig",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TemperatureNegSingleDig",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TemperatureNegTripleDig",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TemperatureSingleDig",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TemperatureTripleDig",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TestAllLeds",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TestOffset",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TestRotation",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TextToSpeechGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TextToSpeechGetLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TextToSpeechGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerCancelGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerCancelTimer",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerCheckTimeGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerCheckTimeGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerRing",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerRingGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerRingGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerSetGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "TimerSetGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "UnitTestAnim",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_IntentNeutral",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_ListeningGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_ListeningGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_ListeningLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_SleepingToListeningGetIn",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_SleepingToListeningGetOut",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VC_SleepingToListeningLoop",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "Visible",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VolumeLevel1",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VolumeLevel2",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VolumeLevel3",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VolumeLevel4",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "VolumeLevel5",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WakeupGetout",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondCloudy_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondColdClear_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondRain_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondSnow_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondStars_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondSunny_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    },
+    {
+      "trigger": "WeatherCondThunderstorms_01",
+      "source": "Vector-Wiki.txt",
+      "status": "unobserved",
+      "notes": ""
+    }
+  ],
+  "usage_notes": [
+    "This file contains all animation triggers found in Vector documentation",
+    "Use tools/run_animation_tests.py to observe and name these animations",
+    "Status values: unobserved, observed, tested, validated",
+    "Add your observations to animation_observations.json"
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "joy": {
+    "candidates": {
+      "anim_reacttoblock_success_01": 3.0,
+      "anim_feedback_shutup": 2.0,
+      "anim_hiking_driving_end_01": 2.5,
+      "anim_wakeword_groggyeyes_listenloop_01": 2.0
+    },
+    "probability": 0.9,
+    "intensity_variants": {
+      "high": {
+        "anim_reacttoblock_success_01": 5.0
+      },
+      "low": {
+        "anim_feedback_shutup": 2.0
+      }
+    }
+  },
+  "sadness": {
+    "candidates": {
+      "anim_hiking_driving_end_angry_01": 2.5,
+      "anim_fistbump_fail_01": 3.0
+    },
+    "probability": 0.4,
+    "intensity_variants": {}
+  },
+  "confusion": {
+    "candidates": {
+      "anim_knowledgegraph_idle_01": 3.0,
+      "anim_rtpickup_loop_10": 2.0
+    },
+    "probability": 0.4,
+    "intensity_variants": {}
+  },
+  "curiosity": {
+    "candidates": {
+      "anim_explorer_scan_01": 3.0,
+      "anim_rtpickup_loop_10": 2.5,
+      "anim_petdetection_dog_01": 2.5
+    },
+    "probability": 0.9,
+    "intensity_variants": {
+      "high": {
+        "anim_explorer_scan_01": 4.0
+      }
+    }
+  },
+  "thinking": {
+    "candidates": {
+      "anim_knowledgegraph_idle_01": 3.0,
+      "anim_rtpickup_loop_10": 2.5
+    },
+    "probability": 0.7,
+    "intensity_variants": {}
+  },
+  "greeting": {
+    "candidates": {
+      "anim_meetvictor_lookface_01": 3.5,
+      "anim_reacttoblock_success_01": 2.5
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "thanks": {
+    "candidates": {
+      "anim_fistbump_success_01": 3.0,
+      "anim_feedback_shutup": 2.5
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "celebration": {
+    "candidates": {
+      "anim_majorwin": 5.0,
+      "anim_fistbump_success_01": 3.0
+    },
+    "probability": 0.7,
+    "intensity_variants": {}
+  },
+  "satisfied": {
+    "candidates": {
+      "anim_feedback_shutup": 2.5,
+      "anim_reacttoblock_success_01": 2.0
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "anger": {
+    "candidates": {
+      "anim_hiking_driving_end_angry_01": 4.0,
+      "anim_fistbump_fail_01": 2.5
+    },
+    "probability": 0.3,
+    "intensity_variants": {}
+  },
+  "surprise": {
+    "candidates": {
+      "anim_wakeword_groggyeyes_listenloop_01": 3.0,
+      "anim_petdetection_cat_01": 2.5
+    },
+    "probability": 0.5,
+    "intensity_variants": {}
+  }
+}

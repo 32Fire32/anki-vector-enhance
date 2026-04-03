@@ -1,0 +1,100 @@
+{
+  "joy": {
+    "candidates": {
+      "AlreadyAtFace": 2.0,
+      "ComeHereSuccess": 2.0,
+      "BlackJack_VictorWin": 2.0,
+      "ConnectWakeUp": 2.0
+    },
+    "probability": 0.9,
+    "intensity_variants": {}
+  },
+  "sadness": {
+    "candidates": {
+      "ConnectToCubeFailure": 2.0,
+      "ChargerDockingRequestGetout": 2.0,
+      "BlackJack_VictorLose": 2.0
+    },
+    "probability": 0.4,
+    "intensity_variants": {}
+  },
+  "confusion": {
+    "candidates": {
+      "AudioOnlyHuh": 2.0,
+      "ConnectToCubeGetIn": 2.0,
+      "ConnectToCubeLoop": 2.0
+    },
+    "probability": 0.4,
+    "intensity_variants": {}
+  },
+  "curiosity": {
+    "candidates": {
+      "ExploringQuickScan": 2.0,
+      "ExploringLookAround": 2.0,
+      "ConnectToCubeGetIn": 2.0,
+      "ExploringReactToHandLift": 2.0
+    },
+    "probability": 0.9,
+    "intensity_variants": {}
+  },
+  "thinking": {
+    "candidates": {
+      "CountingFastLoop": 2.0,
+      "CountingGetInEven": 2.0,
+      "ConnectToCubeGetIn": 2.0,
+      "ConnectToCubeLoop": 2.0
+    },
+    "probability": 0.7,
+    "intensity_variants": {}
+  },
+  "greeting": {
+    "candidates": {
+      "ConnectWakeUp": 2.0,
+      "ComeHereStart": 2.0,
+      "ComeHereSuccess": 2.0
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "thanks": {
+    "candidates": {
+      "CubePounceWinSession": 2.0,
+      "BlackJack_VictorWin": 2.0
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "celebration": {
+    "candidates": {
+      "BlackJack_VictorBlackJackWin": 2.0,
+      "CubePounceWinSession": 2.0
+    },
+    "probability": 0.7,
+    "intensity_variants": {}
+  },
+  "satisfied": {
+    "candidates": {
+      "CubePounceWinSession": 2.0,
+      "AlreadyAtFace": 2.0
+    },
+    "probability": 0.8,
+    "intensity_variants": {}
+  },
+  "anger": {
+    "candidates": {
+      "DriveLoopAngry": 2.0,
+      "DriveStartAngry": 2.0
+    },
+    "probability": 0.3,
+    "intensity_variants": {}
+  },
+  "surprise": {
+    "candidates": {
+      "ConnectWakeUp": 2.0,
+      "ExploringHuhClose": 2.0,
+      "ExploringHuhFar": 2.0
+    },
+    "probability": 0.5,
+    "intensity_variants": {}
+  }
+}
