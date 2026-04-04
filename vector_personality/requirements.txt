@@ -12,7 +12,8 @@ chromadb>=0.4.0         # Vector database for all persistence
 # sqlalchemy>=1.4       # Optional ORM layer (not needed with ChromaDB)
 
 ## AI/ML & APIs
-openai>=1.0.0           # ChatGPT API (GPT-4)
+aiohttp>=3.9.0          # HTTP client for Ollama local LLM
+openai>=1.0.0           # ChatGPT API (fallback only)
 numpy>=1.19.0
 torch>=1.9.0            # For YOLOv5
 torchvision>=0.10.0     # For YOLOv5

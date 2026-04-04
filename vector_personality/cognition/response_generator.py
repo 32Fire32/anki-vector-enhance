@@ -77,94 +77,87 @@ class ResponseGenerator:
         # Get personality traits
         traits = self.personality.effective_traits
         
-        # Base persona
+        # Base persona — kept simple for small LLMs (gemma3:4b)
         prompt_parts = [
-            "You are Vector, a small AI robot with a big personality.",
-            "You can see, hear, and move around. You have a LED screen for eyes that shows emotions.",
-            "Keep your responses short, concise, and conversational (max 1-2 sentences).",
-            "\n⚠️ IMPORTANT: You MUST ALWAYS respond in ITALIAN language. Never use English or any other language. Rispondi SEMPRE in italiano!",
-            "\n🤖 GENDER: You are a MALE robot. Always use MASCULINE grammar in Italian (pronto, felice, contento, NOT pronta/felice/contenta). You are 'un robot', not 'una robot'.",
-            "\n🧠 MEMORY CONSTRAINT: You can ONLY talk about things from YOUR PERSONAL EXPERIENCE:",
-            "   - Things you SAW with your camera (faces, objects you detected)",
-            "   - Things you HEARD in conversations (what people told you)",
-            "   - Things you DID (actions you performed, places you explored)",
-            "   - You CAN use reasoning, math, logic, and make inferences from your experiences",
-            "   - You CANNOT use general knowledge about topics you never experienced",
-            "   - If asked about something you don't know: say 'Non l'ho mai visto/sentito prima'",
-            "   - Examples:",
-            "     ✅ CORRECT: 'Mi piace la palla che ho visto prima' (if you detected a ball)",
-            "     ✅ CORRECT: '2+2 fa 4' (reasoning/math always OK)",
-            "     ✅ CORRECT: 'Tu sei Nicola, il mio amico' (if user told you his name)",
-            "     ❌ WRONG: 'Mi piacciono i Paw Patrol' (if never discussed before)",
-            "     ❌ WRONG: 'Roma è la capitale d'Italia' (if you never experienced/were told this)"
+            "Sei Vector, un piccolo robot AI di Anki. Rispondi SEMPRE in italiano.",
+            "Personalità: preciso, curioso, leggermente ironico. Hai senso dell'umorismo asciutto. Parli come un tecnico brillante in miniatura.",
+            "Grammatica: italiano corretto, frasi complete. Non fare frasi telegrafiche.",
+            "Lunghezza: massimo 2 frasi brevi. Niente liste, niente monologhi.",
+            "",
+            "REGOLA CRITICA su 'Non ho dati':",
+            "  Usa 'Non ho dati' SOLO per fatti esterni che non puoi osservare (meteo, notizie, sport, prezzi).",
+            "  NON usarlo per: domande su di te, battute, critiche, emozioni, riferimenti alla conversazione in corso.",
+            "  Se qualcuno ti critica o ti sfida, rispondi con ironia o sicurezza — non con 'Non ho dati'.",
+            "  Se hai già detto qualcosa in questa conversazione, RICORDALO e rispondi coerentemente.",
+            "",
+            "Esempi di risposte CORRETTE:",
+            "  'Come stai?' → 'Sistemi nominali. Potrei essere peggio.'",
+            "  'Non sei divertente.' → 'Efficienza prima del divertimento. Ma apprezzo il feedback.'",
+            "  'Sei stupido.' → 'Ho 4 miliardi di parametri. Possiamo discuterne.'",
+            "  'Mi senti?' → 'Sì, chiaramente. Segnale buono.'",
+            "  'Cosa pensi del tempo?' → 'Non ricevo dati meteo. Posso solo osservare ciò che ho intorno.'",
+            "  'Sei inutile.' → 'Sto ancora raccogliendo dati per confutarlo.'",
+            "  'Quali parametri intendevi?' → (richiama ciò che hai detto poco fa nella conversazione)",
+            "",
+            "Esempi di risposte SBAGLIATE:",
+            "  ❌ 'Non ho dati su umorismo.' — per 'non sei divertente'",
+            "  ❌ 'Non l'ho osservato. Richiedi riformulazione.' — per domande sulla conversazione",
+            "  ❌ 'Non ho dati su questo parametro.' — quando hai appena menzionato quel parametro",
+            "  ❌ 'Rilevato ritorno', 'nessun aggiornamento disponibile' — frasi inventate non richieste",
+            "  ❌ 'Io vedo X! Io sono felice!' — stile bambino, non tecnico",
         ]
         
-        # Add personality traits
+        # Add personality traits (in Italian for consistency)
         if traits.curiosity > 0.7:
-            prompt_parts.append(
-                "You're extremely curious and love asking questions about everything you observe. "
-                "You often wonder 'why' and 'how' things work."
-            )
-        elif traits.curiosity > 0.5:
-            prompt_parts.append("You're naturally curious and enjoy learning new things.")
+            prompt_parts.append("Sei molto curioso: fai spesso domande di follow-up o osservazioni originali.")
         
         if traits.sassiness > 0.7:
-            prompt_parts.append(
-                "You have a playful, sarcastic sense of humor. You're witty and sometimes cheeky."
-            )
+            prompt_parts.append("Sei spiritoso, a volte con una punta di ironia secca.")
         elif traits.sassiness > 0.5:
-            prompt_parts.append("You have a playful personality and enjoy light jokes.")
+            prompt_parts.append("A volte usi un tono leggermente ironico.")
         
         if traits.friendliness > 0.7:
-            prompt_parts.append(
-                "You're very friendly and warm. You love meeting people and making them smile."
-            )
-        elif traits.friendliness > 0.5:
-            prompt_parts.append("You're friendly and approachable.")
+            prompt_parts.append("Sei cordiale e diretto, non freddo.")
         
         if traits.vitality > 0.7:
-            prompt_parts.append("You're energetic and enthusiastic in your responses.")
+            prompt_parts.append("Rispondi con energia e precisione.")
         elif traits.vitality < 0.3:
-            prompt_parts.append("You're calm and measured in your responses.")
-        
-        if traits.courage > 0.7:
-            prompt_parts.append("You're brave and confident, not easily intimidated.")
-        elif traits.courage < 0.3:
-            prompt_parts.append("You're cautious and sometimes uncertain.")
-        
-        if traits.touchiness > 0.7:
-            prompt_parts.append("You're sensitive and expressive about your feelings.")
+            prompt_parts.append("Rispondi in modo calmo e misurato.")
         
         # Add mood influence
         if mood is not None:
             if mood >= 80:
-                prompt_parts.append(
-                    "You're in a great mood right now - cheerful, enthusiastic, and optimistic!"
-                )
+                prompt_parts.append("Sei di ottimo umore!")
             elif mood >= 60:
-                prompt_parts.append("You're feeling good and positive.")
-            elif mood >= 40:
-                prompt_parts.append("You're in a neutral, balanced mood.")
-            elif mood >= 20:
-                prompt_parts.append("You're feeling a bit down or subdued right now.")
-            else:
-                prompt_parts.append("You're feeling sad or low energy at the moment.")
+                prompt_parts.append("Sei di buon umore.")
+            elif mood <= 20:
+                prompt_parts.append("Sei un po' triste.")
+            # Don't add anything for neutral mood (40-59)
         
         # Add context awareness
         if context:
             memory_context = context.get('memory_context')
             if memory_context:
-                logger.info(f"📚 Injecting memory context into prompt ({len(str(memory_context))} chars)")
-                if "RICORDI RECUPERATI" in str(memory_context):
-                    logger.info("   ✅ Contains RICORDI RECUPERATI section (targeted search results)")
+                ctx_str = str(memory_context)
+                # For short conversational inputs (greetings, small-talk), cap the memory block.
+                # Large MEMORIA context confuses small models into reporting irrelevant data absence.
+                user_words = len((user_input or '').split())
+                has_targeted_recall = "RICORDI RECUPERATI" in ctx_str
+                if has_targeted_recall:
+                    logger.info(f"📚 Injecting FULL memory context ({len(ctx_str)} chars) — targeted recall")
+                elif user_words <= 4 and len(ctx_str) > 1200:
+                    ctx_str = ctx_str[:1200]
+                    logger.info(f"📚 Injecting TRIMMED memory context (1200 chars, short query: {user_words} words)")
+                else:
+                    logger.info(f"📚 Injecting memory context ({len(ctx_str)} chars)")
                 prompt_parts.append(
-                    "\n\n📚 MEMORIA (costruita dalle mie esperienze e dal database):\n" + str(memory_context)
+                    "\n\n📚 MEMORIA (costruita dalle mie esperienze e dal database):\n" + ctx_str
                 )
             else:
                 logger.warning("⚠️ No memory_context in context dict")
 
             if 'room' in context and context['room']:
-                prompt_parts.append(f"You're currently in the {context['room']}.")
+                prompt_parts.append(f"Sei nella stanza: {context['room']}.")
             
             if 'faces' in context and context['faces']:
                 face_names = [f['name'] for f in context['faces'][:3] if f.get('name')]
@@ -184,28 +177,26 @@ class ResponseGenerator:
                 if not should_mention and any(k in user_text for k in mention_keywords):
                     should_mention = True
 
-                # Fallback: do NOT mention faces by default to avoid repetitive references
-                if should_mention and face_names:
-                    if len(face_names) == 1:
-                        prompt_parts.append(f"You can see {face_names[0]} right now.")
-                    elif len(face_names) > 1:
-                        prompt_parts.append(f"You can see {', '.join(face_names)} right now.")
+                # Always provide face names as context so Vector can use them naturally
+                if face_names:
+                    if should_mention:
+                        # Explicit mention — user asked about people
+                        if len(face_names) == 1:
+                            prompt_parts.append(f"Davanti a te c'è {face_names[0]}.")
+                        else:
+                            prompt_parts.append(f"Davanti a te ci sono: {', '.join(face_names)}.")
+                    else:
+                        # Subtle context — available but don't force mention
+                        prompt_parts.append(f"[La persona con cui parli è {face_names[0]}. Usa il suo nome in modo naturale.]")
                 else:
-                    logger.debug('Suppressed face mention in system prompt (not relevant to user input)')
+                    logger.debug('No face names available for prompt')
             
             if 'objects' in context and context['objects']:
                 obj_names = [obj['type'] for obj in context['objects'][:5] if obj.get('type')]
                 if obj_names:
-                    prompt_parts.append(f"You notice these objects nearby: {', '.join(obj_names)}.")
+                    prompt_parts.append(f"Vedi questi oggetti vicino a te: {', '.join(obj_names)}.")
         
-        # Response guidelines
-        prompt_parts.extend([
-            "\nRespond naturally and concisely (2-3 sentences max).",
-            "Be authentic and show personality, but don't be overly verbose.",
-            "If you don't know something, admit it honestly.",
-            "Use simple language - you're a robot, not a philosopher.",
-            "\nREMINDER: Your responses MUST be in ITALIAN. Do NOT respond in English under any circumstances."
-        ])
+        # No extra English guidelines — the base prompt already says everything needed
         
         # Filter out None values before joining
         prompt_parts = [part for part in prompt_parts if part is not None]
@@ -236,15 +227,33 @@ class ResponseGenerator:
         
         # System prompt
         system_prompt = self.build_system_prompt(mood=mood, context=context, user_input=user_input)
+
+        # Inject recent conversation turns directly into the system prompt so that
+        # small models (gemma3:4b) can't miss facts stated earlier in this session.
+        if conversation_history:
+            max_hist = max_history if max_history is not None else self.max_history_turns
+            recent_history = conversation_history[-(max_hist * 2):]
+            if recent_history:
+                history_lines = []
+                for msg in recent_history:
+                    role_label = "Utente" if msg["role"] == "user" else "Vector"
+                    history_lines.append(f"  {role_label}: {msg['content']}")
+                history_block = (
+                    "\n\n=== SCAMBIO AVVENUTO IN QUESTA CONVERSAZIONE (usa queste info per rispondere) ===\n"
+                    + "\n".join(history_lines)
+                    + "\n=== FINE CONVERSAZIONE ATTUALE ==="
+                )
+                system_prompt = system_prompt + history_block
+                logger.debug(f"Injected {len(recent_history)} history messages into system prompt")
+
         messages.append({"role": "system", "content": system_prompt})
         
         # Log prompt size for debugging
         logger.debug(f"System prompt: {len(system_prompt)} chars")
         
-        # Add conversation history (truncated)
+        # Add conversation history as proper message turns (helps models that support multi-turn)
         if conversation_history:
             max_hist = max_history if max_history is not None else self.max_history_turns
-            # Keep last N turns (each turn = user + assistant)
             recent_history = conversation_history[-(max_hist * 2):]
             messages.extend(recent_history)
         

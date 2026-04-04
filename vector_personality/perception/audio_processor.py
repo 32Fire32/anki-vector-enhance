@@ -39,7 +39,7 @@ class AudioProcessor:
         self,
         sample_rate: int = 16000,
         frame_duration_ms: int = 30,
-        vad_mode: int = 3,
+        vad_mode: int = 0,          # 0=permissive … 3=aggressive. Use 0 for Vector's mic (noisy motors).
         max_buffer_seconds: int = 30
     ):
         """
@@ -80,16 +80,16 @@ class AudioProcessor:
         self.buffer = collections.deque(maxlen=max_frames)
         
         # Silence detection
-        self.silence_threshold_ms = 500  # Increased to 500ms to avoid premature cutoff
+        self.silence_threshold_ms = 1200  # 1.2s — bridges gaps between words on BT/USB mics
         self.silence_frames = int(self.silence_threshold_ms / frame_duration_ms)
         self.consecutive_silence_count = 0
 
-        # Pre-roll: include a small amount of audio before VAD onset to avoid clipping
-        # This helps capture words at the very start of an utterance that VAD detects slightly late
-        self.pre_roll_ms = 300
+        # Pre-roll: include audio before VAD onset so we don't clip the speech start.
+        # 600ms covers the quiet onset consonants (h, s, f) that appear before the voiced vowel.
+        self.pre_roll_ms = 600
         
         # Speech detection threshold (require multiple consecutive speech frames)
-        self.min_speech_frames = 5  # Require 5 frames (150ms) to confirm speech
+        self.min_speech_frames = 2  # Lower = more sensitive. Increase if too many false positives.
         self.consecutive_speech_count = 0
         
         # Recording state
@@ -120,23 +120,40 @@ class AudioProcessor:
             return
             
         try:
-            # Use specified device or Windows Default Recording Device
-            self.stream = sd.InputStream(
-                device=device,
-                channels=1,
-                samplerate=self.sample_rate,
-                dtype='int16',
-                blocksize=self.frame_size,
-                callback=self._audio_callback
-            )
+            # Determine how many channels the device actually supports.
+            # Many BT headsets only expose stereo (2-ch) input even though we want mono.
+            dev_idx = device if device is not None else sd.default.device[0]
+            dev_info = sd.query_devices(dev_idx, 'input')
+            max_ch = int(dev_info.get('max_input_channels', 1))
+            channels = 1 if max_ch >= 1 else max_ch  # prefer mono; BT fallback handled below
+            try:
+                self.stream = sd.InputStream(
+                    device=device,
+                    channels=channels,
+                    samplerate=self.sample_rate,
+                    dtype='int16',
+                    blocksize=self.frame_size,
+                    callback=self._audio_callback
+                )
+            except Exception:
+                # If mono fails (e.g. BT headset requires stereo), open with native channel count
+                channels = max_ch or 2
+                logger.warning(f"Mono open failed for device {dev_idx}, retrying with {channels} channels")
+                self.stream = sd.InputStream(
+                    device=device,
+                    channels=channels,
+                    samplerate=self.sample_rate,
+                    dtype='int16',
+                    blocksize=self.frame_size,
+                    callback=self._audio_callback
+                )
+            self._open_channels = channels  # remember for downmix in callback
             self.stream.start()
             self.is_recording = True
-            
-            # Log which device is being used
-            device_info = sd.query_devices(device if device is not None else sd.default.device[0], 'input')
-            logger.info(f"🎤 Microphone listening started: {device_info['name']}")
+            logger.info(f"🎤 Microphone listening started: {dev_info['name']} ({channels}ch)")
         except Exception as e:
             logger.error(f"Failed to start microphone: {e}")
+            self.is_recording = False  # ensure flag is clear so retries don't re-enter
     
     @staticmethod
     def list_devices():
@@ -164,15 +181,21 @@ class AudioProcessor:
         """Callback for sounddevice InputStream."""
         if status:
             logger.warning(f"Audio status: {status}")
+
+        # Downmix to mono if device was opened with >1 channels
+        if indata.shape[1] > 1:
+            mono = indata.mean(axis=1, keepdims=True).astype(np.int16)
+        else:
+            mono = indata
         
         # Calculate energy for diagnostics
-        energy = np.sqrt(np.mean(indata.astype(np.float32) ** 2))
+        energy = np.sqrt(np.mean(mono.astype(np.float32) ** 2))
         if energy > self.max_energy:
             self.max_energy = energy
             
         # indata is numpy array (frames, channels)
         # Convert to bytes for webrtcvad
-        audio_bytes = indata.tobytes()
+        audio_bytes = mono.tobytes()
         
         # Process frame
         self.add_frame(audio_bytes)
@@ -188,7 +211,14 @@ class AudioProcessor:
             True if frame contains speech, False otherwise
         """
         try:
-            return self.vad.is_speech(frame, self.sample_rate)
+            result = self.vad.is_speech(frame, self.sample_rate)
+            # Log first 20 raw VAD results so we can see what webrtcvad thinks
+            if not hasattr(self, '_vad_calls'):
+                self._vad_calls = 0
+            self._vad_calls += 1
+            if self._vad_calls <= 20:
+                logger.info(f'[VAD] call #{self._vad_calls}: is_speech={result} frame_len={len(frame)}B')
+            return result
         except Exception as e:
             logger.warning(f"VAD error: {e}")
             return False
@@ -200,17 +230,38 @@ class AudioProcessor:
         # Skip speech detection when muted (e.g., during TTS playback)
         if self.is_muted:
             return False
-        
+
+        # Track total frames received for diagnostics
+        if not hasattr(self, '_total_frames'):
+            self._total_frames = 0
+        self._total_frames += 1
+
         # Calculate audio energy to filter out weak/distant audio
         audio_array = np.frombuffer(frame, dtype=np.int16).astype(np.float32)
         energy = np.sqrt(np.mean(audio_array ** 2))
-        
+
+        # Track max energy for the monitoring window
+        if energy > self.max_energy:
+            self.max_energy = energy
+
+        # Log energy every 100 frames (~3s) to help diagnose mic issues
+        if self._total_frames % 100 == 0:
+            logger.debug(
+                f'[VAD] frame #{self._total_frames}: '
+                f'energy={energy:.1f} max={self.max_energy:.1f} '
+                f'speech={self.speech_detected} sil={self.consecutive_silence_count}'
+            )
+        elif self._total_frames <= 10:
+            # Log first 10 frames at INFO to confirm data is flowing
+            logger.info(f'[VAD] First frames flowing: #{self._total_frames} energy={energy:.1f}')
+
         # Filter out very weak audio (likely TV/distant conversations)
-        # Threshold: 500 = weak audio from TV/background
-        # Adjust this value based on testing (lower = more sensitive)
-        MIN_ENERGY_THRESHOLD = 500.0
-        
+        # Threshold: 200 = very weak background hiss. Adjust based on mic noise floor.
+        # Lower if Vector's mic noise floor is high (e.g. 707).
+        MIN_ENERGY_THRESHOLD = 50.0
+
         if energy < MIN_ENERGY_THRESHOLD:
+            logger.debug(f'[VAD] Frame below energy threshold: {energy:.1f} < {MIN_ENERGY_THRESHOLD}')
             # Too weak, treat as silence
             # If we're in a speech segment, this counts as silence frame
             if self.speech_detected:
@@ -253,7 +304,7 @@ class AudioProcessor:
             
             # Only activate speech detection after minimum consecutive frames
             if not self.speech_detected and self.consecutive_speech_count >= self.min_speech_frames:
-                logger.info("🗣️ Speech started (confirmed after 150ms)")
+                logger.info(f"🗣️ Speech started (confirmed after {self.min_speech_frames * self.frame_duration_ms}ms)")
                 self.speech_detected = True
                 # Capture a small pre-roll from the circular buffer so we don't lose the start of speech
                 try:
@@ -352,6 +403,22 @@ class AudioProcessor:
     def clear_buffer(self) -> None:
         """Clear audio buffer"""
         self.buffer.clear()
+        self.consecutive_silence_count = 0
+
+    def discard_pending_utterances(self) -> None:
+        """
+        Discard any utterances queued for transcription and reset in-progress
+        speech detection state — WITHOUT wiping the pre-roll ring buffer.
+
+        Call this just before TTS playback so stale audio captured during LLM
+        processing is dropped, but the ring buffer stays intact so pre-roll
+        works correctly the moment the user starts speaking again after TTS.
+        """
+        self.completed_utterances.clear()
+        # Reset in-progress speech capture so we start fresh after TTS
+        self.speech_detected = False
+        self.speech_buffer = []
+        self.consecutive_speech_count = 0
         self.consecutive_silence_count = 0
 
     def export_wav(self, output_path: str) -> int:

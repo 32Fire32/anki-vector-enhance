@@ -529,6 +529,7 @@ class ChromaDBConnector:
         meta: Dict[str, Any] = {
             "speaker_id": speaker_id,
             "timestamp": now,
+            "timestamp_epoch": datetime.now().timestamp(),  # numeric for ChromaDB $gte queries
             "text": text,
             "room_id": room_id or "",
             "emotional_context": emotional_context,
@@ -647,33 +648,53 @@ class ChromaDBConnector:
         if not keywords:
             return []
 
-        cutoff_old = (datetime.now() - timedelta(days=days_back)).isoformat()
+        cutoff_old_ts = (datetime.now() - timedelta(days=days_back)).timestamp()
         try:
-            # Get all conversations within range
+            # Get all conversations within range (use numeric epoch for ChromaDB $gte)
             result = self.conversations.get(
-                where={"timestamp": {"$gte": cutoff_old}},
+                where={"timestamp_epoch": {"$gte": cutoff_old_ts}},
                 include=["metadatas"],
             )
             if not result["ids"]:
-                return []
+                # Fallback: no timestamp_epoch metadata — fetch all and filter in Python
+                result = self.conversations.get(include=["metadatas"])
+                if not result["ids"]:
+                    return []
 
             # Apply exclude_recent filter
             if exclude_recent_hours and int(exclude_recent_hours) > 0:
-                recent_cutoff = (datetime.now() - timedelta(hours=exclude_recent_hours)).isoformat()
+                recent_cutoff_ts = (datetime.now() - timedelta(hours=exclude_recent_hours)).timestamp()
             else:
-                recent_cutoff = None
+                recent_cutoff_ts = None
 
             matches = []
             for cid, meta in zip(result["ids"], result["metadatas"]):
                 ts = meta.get("timestamp", "")
-                if recent_cutoff and ts >= recent_cutoff:
-                    continue
+                # Filter out entries newer than cutoff_old
+                ts_epoch = meta.get("timestamp_epoch")
+                if ts_epoch is not None:
+                    if float(ts_epoch) < cutoff_old_ts:
+                        continue
+                    if recent_cutoff_ts and float(ts_epoch) >= recent_cutoff_ts:
+                        continue
+                else:
+                    # Fallback: parse ISO timestamp string
+                    dt_check = _parse_dt(ts)
+                    if dt_check:
+                        ep = dt_check.timestamp()
+                        if ep < cutoff_old_ts:
+                            continue
+                        if recent_cutoff_ts and ep >= recent_cutoff_ts:
+                            continue
 
                 text = (meta.get("text") or "").lower()
                 response = (meta.get("response_text") or "").lower()
 
                 # Skip hallucination responses
-                skip_phrases = ["non mi ricordo", "non lo so", "non l'ho mai", "non so chi"]
+                skip_phrases = [
+                    "non mi ricordo", "non lo so", "non l'ho mai", "non so chi",
+                    "non ho dati", "non ho informazioni", "non ho osservato"
+                ]
                 if any(phrase in response for phrase in skip_phrases):
                     continue
 
@@ -799,19 +820,34 @@ class ChromaDBConnector:
     async def query(self, sql_or_key: str, params: Optional[Any] = None) -> List[Dict[str, Any]]:
         """Backward-compatible query interface.
 
-        This is provided so that code that calls ``db.query(...)`` directly
-        (e.g. face_detection.py checking sdk_face_id) continues to work.
         Supported patterns:
-        - "SELECT sdk_face_id FROM faces WHERE face_id = ?" -> lookup face
+        - "SELECT sdk_face_id FROM faces WHERE face_id = ?"
+        - "SELECT face_id FROM faces WHERE name = ?"
         """
-        # Handle the specific patterns used in face_detection.py
-        if "sdk_face_id" in str(sql_or_key) and "face_id" in str(sql_or_key):
-            face_id = params[0] if isinstance(params, (tuple, list)) else params
-            face = await self.get_face_by_id(str(face_id))
+        sql = str(sql_or_key)
+        p = params[0] if isinstance(params, (tuple, list)) else params
+
+        # sdk_face_id lookup by face_id
+        if "sdk_face_id" in sql and "face_id" in sql:
+            face = await self.get_face_by_id(str(p))
             if face:
                 return [{"sdk_face_id": face.get("sdk_face_id")}]
             return []
-        logger.warning(f"Unsupported query pattern: {sql_or_key}")
+
+        # face_id lookup by name (used in _handle_user_speech)
+        if "face_id" in sql and "name" in sql and p is not None:
+            try:
+                result = self.faces.get(
+                    where={"name": {"$eq": str(p)}},
+                    include=["metadatas"],
+                )
+                if result["ids"]:
+                    return [{"face_id": result["ids"][0]}]
+            except Exception as e:
+                logger.debug(f"Face name query failed: {e}")
+            return []
+
+        logger.debug(f"Ignored unrecognised query pattern: {sql[:60]}")
         return []
 
     async def execute(self, sql_or_key: str, params: Optional[Any] = None) -> int:

@@ -157,18 +157,17 @@ class TextToSpeech:
                         logger.error(f"All TTS methods failed: {e2}")
                         # Don't return False here, we still generated the audio successfully API-wise
                 
-                # Wait 4 seconds after playback before unmuting to ensure speech is complete
-                # This prevents Vector from detecting his own voice as user speech
-                await asyncio.sleep(4.0)
+                # Short pause so the physical speaker tail clears before unmuting.
+                # 0.5s is enough for the BT headset's echo canceller to settle.
+                # Do NOT use a long delay — the user may speak immediately after Vector stops.
+                await asyncio.sleep(0.5)
                 
                 # Unmute microphone after TTS playback completes
                 if self.audio_processor:
                     self.audio_processor.unmute()
-                    # Clear any audio captured during TTS playback
-                    self.audio_processor.clear_buffer()
-                    # Also clear any completed utterances from queue
-                    while self.audio_processor.get_last_utterance() is not None:
-                        pass  # Discard all queued utterances
+                    # Discard any stale utterances queued during TTS, WITHOUT wiping the
+                    # pre-roll ring buffer (so the next speech gets its onset captured)
+                    self.audio_processor.discard_pending_utterances()
                 
                 # Clean up temp files
                 try:

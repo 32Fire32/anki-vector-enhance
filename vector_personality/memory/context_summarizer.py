@@ -23,8 +23,9 @@ class ContextSummarizer:
     def __init__(self, sql_connector, groq_client):
         """
         Args:
-            sql_connector: SQLServerConnector instance
-            groq_client: GroqClient instance for summarization
+            sql_connector: Database connector (ChromaDBConnector)
+            groq_client: LLM client with chat_completion() method
+                         (OllamaClient, GroqClient, or OpenAIClient)
         """
         self.sql_connector = sql_connector
         self.groq_client = groq_client

@@ -69,9 +69,19 @@ except ImportError:
     AudioProcessor = None
 
 try:
+    from vector_personality.perception.vector_mic import VectorMicProcessor
+except ImportError:
+    VectorMicProcessor = None
+
+try:
     from vector_personality.perception.speech_recognition import SpeechRecognizer
 except ImportError:
     SpeechRecognizer = None
+
+try:
+    from vector_personality.perception.local_whisper import LocalWhisperRecognizer
+except ImportError:
+    LocalWhisperRecognizer = None
 
 try:
     from vector_personality.perception.object_detector import ObjectDetector
@@ -94,6 +104,11 @@ try:
 except ImportError:
     MoodEngine = None
     EyeColorMapper = None
+
+try:
+    from vector_personality.cognition.ollama_client import OllamaClient
+except ImportError:
+    OllamaClient = None
 
 try:
     from vector_personality.cognition.groq_client import GroqClient
@@ -173,6 +188,9 @@ class VectorAgent:
         self.conversation_active = False  # True after wake word detected
         self.last_interaction_time = None  # Timestamp of last user speech
         self.conversation_timeout = 30.0  # Seconds before requiring wake word again (balanced: enough for follow-ups, not too long for background)
+        self.conversation_history = []  # Short-term buffer: [{"role": "user"|"assistant", "content": ...}]
+        self.unknown_face_id = None  # Reusable face_id for unknown users (avoids spam)
+        self._speech_processing = False  # Guard: prevent concurrent _handle_user_speech calls
         
         # Startup tracking
         self.startup_time = None  # Set when startup completes
@@ -196,18 +214,26 @@ class VectorAgent:
         
         # Audio processing
         self.audio_processor = AudioProcessor() if AudioProcessor else None
+        self.vector_mic = None  # Initialized in _process_audio once robot is connected
         
-        # Speech recognition (uses Groq Whisper - free and unlimited)
+        # Speech recognition — Groq cloud first, then local Whisper fallback
+        self.speech_recognizer = None
         if SpeechRecognizer and groq_api_key:
             self.speech_recognizer = SpeechRecognizer(
                 api_key=groq_api_key,
-                language="it"  # Force Italian language for transcription
+                language="it"
             )
             logger.info("✅ Speech recognition initialized (Groq Whisper, Italian)")
-        else:
-            self.speech_recognizer = None
-            if not groq_api_key:
-                logger.warning("⚠️ Speech recognition disabled (no Groq API key)")
+        if not self.speech_recognizer:
+            if LocalWhisperRecognizer:
+                whisper_model = os.environ.get("WHISPER_MODEL", "small")
+                self.speech_recognizer = LocalWhisperRecognizer(
+                    model_size=whisper_model,
+                    language="it",
+                )
+                logger.info(f"🎤 Local Whisper STT active (model={whisper_model}, Italian)")
+            else:
+                logger.warning("⚠️ No speech recognizer available — install faster-whisper or set GROQ_API_KEY")
         
         # Object detection (YOLOv5)
         # Note: Skip object detection initialization for now - it's causing startup delays
@@ -256,48 +282,67 @@ class VectorAgent:
         self.mood_engine = MoodEngine() if MoodEngine else None
         self.eye_color_mapper = EyeColorMapper() if EyeColorMapper else None
         
-        # Cognition modules (Phase 4 + Phase 10: Groq Migration)
-        # Priority: Try Groq first (privacy-focused, free), fallback to OpenAI if no Groq key
+        # Cognition modules (Phase 11: Local AI via Ollama)
+        # Priority: Ollama (local, free, private) → Groq → OpenAI
+        ollama_model = os.environ.get('OLLAMA_MODEL', 'mistral-small3.2:latest')
+        ollama_url = os.environ.get('OLLAMA_URL', 'http://localhost:11434')
         groq_api_key = os.environ.get('GROQ_API_KEY')
         
-        if GroqClient and groq_api_key:
-            # Use Groq (Llama 3.3 70B) - privacy-focused, no data collection
-            logger.info("🔒 Using Groq AI (privacy-focused, no data collection)")
+        self.llm_client = None
+        self.chat_client = None  # Alias used by context_builder / summarizer
+        self.groq_client = None  # Kept for backward compat with any remaining references
+        self.openai_client = None
+
+        # 1. Try local Ollama first (free, private, fast on local GPU)
+        if OllamaClient:
+            try:
+                ollama = OllamaClient(
+                    base_url=ollama_url,
+                    default_model=ollama_model,
+                    timeout_seconds=60,
+                )
+                # Quick synchronous connectivity check (no event loop needed)
+                import requests as _req
+                try:
+                    r = _req.get(f"{ollama_url}/api/tags", timeout=5)
+                    models = [m["name"] for m in r.json().get("models", [])]
+                    available = ollama_model in models
+                except Exception:
+                    available = False
+
+                if available:
+                    self.llm_client = ollama
+                    self.chat_client = ollama
+                    self.groq_client = ollama  # compat alias for context_builder
+                    logger.info(f"🏠 Using LOCAL Ollama LLM: {ollama_model}")
+                    logger.info("✅ Zero cloud cost, full privacy, all data stays on this machine")
+                else:
+                    logger.warning(f"⚠️ Ollama running but model '{ollama_model}' not available")
+            except Exception as e:
+                logger.warning(f"⚠️ Ollama not reachable: {e}")
+
+        # 2. Fall back to Groq (cloud, free tier)
+        if not self.llm_client and GroqClient and groq_api_key:
+            logger.info("☁️ Falling back to Groq cloud API (Ollama unavailable)")
             self.llm_client = GroqClient(
                 api_key=groq_api_key,
                 default_model="llama-3.3-70b-versatile"
             )
-            self.groq_client = self.llm_client  # Store reference for context builder
-
-            # OpenAI fallback: optionally create a real OpenAI client and attach it
-            openai_fallback_enabled = os.getenv('OPENAI_FALLBACK_ENABLED', 'false').lower() == 'true'
-            openai_api_key = os.environ.get('OPENAI_API_KEY')
-            if openai_fallback_enabled and OpenAIClient and openai_api_key:
-                try:
-                    fb_model = os.getenv('OPENAI_FALLBACK_MODEL') or 'gpt-4o'
-                    self.openai_client = OpenAIClient(api_key=openai_api_key, default_model=fb_model)
-                    # Attach to Groq client for internal failover
-                    setattr(self.groq_client, 'openai_client', self.openai_client)
-                    setattr(self.groq_client, 'openai_fallback_enabled', True)
-                    logger.info(f"⚠️ OpenAI fallback enabled: {fb_model}")
-                except Exception as e:
-                    logger.warning(f"Failed to initialize OpenAI fallback: {e}")
-            else:
-                self.openai_client = None
-
+            self.chat_client = self.llm_client
+            self.groq_client = self.llm_client
             logger.info("✅ Groq client initialized (Llama 3.3 70B)")
-        elif OpenAIClient and openai_api_key:
-            # Fallback to OpenAI
-            logger.info("Using OpenAI GPT-4 (fallback)")
+
+        # 3. Fall back to OpenAI (cloud, paid)
+        if not self.llm_client and OpenAIClient and openai_api_key:
+            logger.info("☁️ Falling back to OpenAI cloud API (Ollama/Groq unavailable)")
             self.llm_client = OpenAIClient(api_key=openai_api_key)
-            self.groq_client = None  # No Groq available
+            self.chat_client = self.llm_client
+            self.groq_client = None
             self.openai_client = self.llm_client
             logger.info("✅ OpenAI client initialized (GPT-4)")
-        else:
-            logger.warning("⚠️ No LLM API key found (GROQ_API_KEY or OPENAI_API_KEY) - reasoning features disabled")
-            self.llm_client = None
-            self.groq_client = None
-            self.openai_client = None
+
+        if not self.llm_client:
+            logger.warning("⚠️ No LLM available (Ollama not running, no cloud API keys) - reasoning features disabled")
         
         # Budget enforcement system removed (T122)
         self.budget_enforcer = None
@@ -527,6 +572,14 @@ class VectorAgent:
         
         # Start Audio Loop as a background task
         self.audio_task = asyncio.create_task(self._audio_loop())
+
+        # Start wire-pod OpenAI-compatible bridge server
+        try:
+            from vector_personality.api.wirepod_bridge import start_wirepod_bridge
+            bridge_port = await start_wirepod_bridge(self)
+            logger.info(f"[WirePodBridge] ✅ Bridge active on :{bridge_port} — configure wire-pod KG → custom → http://<this-PC>:{bridge_port}")
+        except Exception as _bridge_err:
+            logger.warning(f"[WirePodBridge] Could not start bridge ({_bridge_err}) — wire-pod integration disabled")
         
         # Main event loop
         try:
@@ -687,18 +740,20 @@ class VectorAgent:
 
     async def _process_audio(self):
         """
-        Process audio from PC microphone for wake word detection and speech recognition.
+        Process audio from Vector's built-in microphones for speech recognition.
+        
+        Falls back to PC microphone if Vector mic feed is unavailable.
         
         Flow:
-        1. Continuously capture audio from microphone
+        1. Stream audio from Vector's microphone array via gRPC AudioFeed
         2. Use VAD to detect speech segments
         3. Check for wake word ("Ciao Vector" or Italian variants) 
         4. Transcribe speech after wake word detected
         5. Save to database and process response
         """
-        if not self.audio_processor or not self.speech_recognizer:
+        if not self.audio_processor:
             return
-        
+
         try:
             # Initialize audio counter if not exists
             if not hasattr(self, '_audio_counter'):
@@ -706,13 +761,40 @@ class VectorAgent:
             self._audio_counter += 1
             
             # Ensure microphone listening is started
-            if not self.audio_processor.is_recording:
-                # Get microphone device from environment or use default
-                import os
-                device_id = int(os.getenv('MICROPHONE_DEVICE_ID', '1'))  # Default to device 1
-                logger.info(f"🎤 Starting PC microphone (device {device_id})...")
-                self.audio_processor.start_listening(device=device_id)
-                logger.info("🎤 Microphone active - speak into configured microphone")
+            if not self.audio_processor.is_recording and not getattr(self, '_mic_start_failed', False):
+                audio_source = os.getenv('AUDIO_SOURCE', 'vector').lower()
+                logger.info(f"[Audio] Initialising audio source: {audio_source!r}")
+
+                if audio_source == 'pc':
+                    # Legacy: use PC microphone via sounddevice
+                    device_id = int(os.getenv('MICROPHONE_DEVICE_ID', '1'))
+                    logger.info(f"🎤 Starting PC microphone (device {device_id})...")
+                    self.audio_processor.start_listening(device=device_id)
+                    if self.audio_processor.is_recording:
+                        logger.info("🎤 PC microphone active")
+                    else:
+                        logger.error("🎤 PC microphone FAILED to open — will not retry. Check MICROPHONE_DEVICE_ID.")
+                        self._mic_start_failed = True
+                else:
+                    # Default: use Vector's built-in microphone array
+                    if VectorMicProcessor and self.robot:
+                        try:
+                            logger.info("[Audio] Creating VectorMicProcessor...")
+                            self.vector_mic = VectorMicProcessor(self.robot, self.audio_processor)
+                            self.vector_mic.start()
+                            # Mark audio_processor as recording so this block doesn't re-enter
+                            self.audio_processor.is_recording = True
+                            self._vector_mic_start_time = datetime.now()
+                            logger.info("🎤 Vector microphone array start requested — waiting for first chunk...")
+                            # Launch sliding-window STT loop (bypasses webrtcvad for noisy mic)
+                            asyncio.create_task(self._vector_mic_stt_loop())
+                            logger.info("[SlidingSTT] Background Whisper VAD task created")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Vector mic init failed ({e}), falling back to PC microphone")
+                            self._fallback_to_pc_mic()
+                    else:
+                        logger.warning("⚠️ VectorMicProcessor not available, using PC microphone")
+                        self._fallback_to_pc_mic()
 
                 # Play deferred startup greeting once microphone is active
                 try:
@@ -725,17 +807,40 @@ class VectorAgent:
                             "Un attimo che mi stiracchio i circuiti!"
                         ]
                         message = random.choice(greetings)
-                        # Run greeting in background so we don't block audio loop
                         asyncio.create_task(self._run_startup_greeting(message))
                 except Exception:
                     logger.exception("Error scheduling startup greeting")
-            
+
+            # --- Vector mic health check: if no chunks after 10s, fall back to PC mic ---
+            if (self.vector_mic and self.audio_processor.is_recording
+                    and self.vector_mic.total_chunks_received == 0):
+                elapsed = (datetime.now() - getattr(self, '_vector_mic_start_time', datetime.now())).total_seconds()
+                if elapsed > 10.0:
+                    logger.warning(
+                        f"[Audio] ⚠️ Vector mic started {elapsed:.0f}s ago but ZERO chunks received. "
+                        "Wire-pod likely does not support AudioFeed gRPC. "
+                        "Falling back to PC microphone (set AUDIO_SOURCE=pc to suppress this)."
+                    )
+                    self.vector_mic.stop()
+                    self.vector_mic = None
+                    self.audio_processor.is_recording = False
+                    self._fallback_to_pc_mic()
+
             # Check signal level periodically to help user debug microphone issues
             if self._audio_counter % 50 == 0:  # Every ~2.5s (assuming 20Hz loop)
-                if self.audio_processor.max_energy < 100:  # Threshold for "silence"
-                    logger.info(f"🎤 Signal check: {self.audio_processor.max_energy:.2f} (low - speak louder)")
+                if self.vector_mic and self.vector_mic.is_active:
+                    direction = self.vector_mic.direction_label()
+                    logger.info(
+                        f"🎤 Vector mic: chunks={self.vector_mic.total_chunks_received} "
+                        f"dir={direction} energy={self.audio_processor.max_energy:.0f} "
+                        f"vad_active={self.audio_processor.speech_detected} ✅"
+                    )
+                elif self.audio_processor.max_energy < 100:
+                    logger.info(f"🎤 Signal check: energy={self.audio_processor.max_energy:.2f} "
+                                f"vad={self.audio_processor.speech_detected} (low - speak louder)")
                 else:
-                    logger.info(f"🎤 Microphone active (Max Energy: {self.audio_processor.max_energy:.2f}) ✅")
+                    logger.info(f"🎤 Mic active: energy={self.audio_processor.max_energy:.2f} "
+                                f"vad={self.audio_processor.speech_detected} ✅")
                 self.audio_processor.max_energy = 0.0  # Reset for next window
 
             # Check for complete utterance (speech segment ended)
@@ -746,16 +851,37 @@ class VectorAgent:
                 if not utterance_data:
                     break
                 
-                logger.info(f"🎤 Speech detected ({len(utterance_data)} bytes), transcribing...")
-                
+                # Include direction info if using Vector mic
+                direction_info = ""
+                if self.vector_mic and self.vector_mic.is_active:
+                    direction_info = f" from {self.vector_mic.direction_label()}"
+
                 # Calculate audio duration (sample_rate is typically 16000 Hz, 2 bytes per sample)
                 audio_duration = len(utterance_data) / (self.audio_processor.sample_rate * 2)
-                
-                # Skip if audio is too short (< 0.3s) - Whisper requires minimum 0.1s but short clips are usually noise
-                if audio_duration < 0.3:
+                logger.info(f"🎤 Speech detected ({audio_duration:.2f}s{direction_info})")
+
+                if not self.speech_recognizer:
+                    # Save audio to temp WAV so it can be inspected manually
+                    import tempfile, wave as _wave
+                    _debug_wav = Path(tempfile.gettempdir()) / f"vector_debug_{datetime.now().strftime('%H%M%S')}.wav"
+                    with _wave.open(str(_debug_wav), 'wb') as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(self.audio_processor.sample_rate)
+                        wf.writeframes(utterance_data)
+                    logger.info(
+                        f"⚠️  No speech recognizer — mic IS triggering VAD! "
+                        f"Saved audio to {_debug_wav} — open this WAV to verify audio quality. "
+                        "Add GROQ_API_KEY to api.env or install faster-whisper for transcription."
+                    )
+                    continue
+
+                # Skip if audio is too short — real utterances are at least 1s.
+                # Fragments below this are VAD micro-triggers (silence transitions, noise bursts).
+                if audio_duration < 1.0:
                     logger.debug(f"⚠️ Audio too short ({audio_duration:.2f}s), skipping transcription")
                     continue
-                
+
                 # Save to temp WAV file
                 import tempfile
                 import wave
@@ -765,10 +891,10 @@ class VectorAgent:
                     wf.setsampwidth(2)
                     wf.setframerate(self.audio_processor.sample_rate)
                     wf.writeframes(utterance_data)
-                
+
                 # Transcribe audio to text
                 try:
-                    logger.info("🔊 Transcribing audio with Whisper API...")
+                    logger.info("🔊 Transcribing audio...")
                     result = await self.speech_recognizer.transcribe(str(temp_wav))
                     
                     if result and result.get('text'):
@@ -870,9 +996,8 @@ class VectorAgent:
                                 logger.info("👋 Wake word only - no command given")
                                 # Just acknowledge (Italian)
                                 if self.tts:
-                                    # Clear audio buffer before speaking
                                     if self.audio_processor:
-                                        self.audio_processor.clear_buffer()
+                                        self.audio_processor.discard_pending_utterances()
                                     await self.tts.speak("Sì? Come posso aiutarti?")
                         elif self.conversation_active and not conversation_expired:
                             # No wake word, but conversation still active - process as follow-up
@@ -888,9 +1013,19 @@ class VectorAgent:
                         else:
                             # No wake word and conversation expired/inactive
                             if conversation_expired:
-                                logger.debug(f"⏱️ Conversation timed out - wake word required")
                                 self.conversation_active = False
                                 logger.info("🔄 Conversation ended - resuming autonomous exploration")
+
+                            # AMBIENT MODE: ask LLM if Vector should join this conversation
+                            if os.getenv('AMBIENT_MODE', 'false').lower() == 'true' and word_count >= 2:
+                                should_respond = await self._should_respond_ambient(text)
+                                if should_respond:
+                                    logger.info(f"[Ambient] 💡 Vector joins conversation: '{text}'")
+                                    self.conversation_active = True
+                                    self.last_interaction_time = datetime.now()
+                                    await self._handle_user_speech(text)
+                                    continue
+
                             logger.debug(f"❌ No wake word in transcription: '{text}'")
                     else:
                         logger.debug("No text in transcription result")
@@ -908,13 +1043,172 @@ class VectorAgent:
         
         except Exception as e:
             logger.error(f"Error processing audio: {e}", exc_info=True)
-        
+
+    async def _should_respond_ambient(self, text: str) -> bool:
+        """
+        Ask the LLM whether Vector should spontaneously join a room conversation.
+        Used only in AMBIENT_MODE=true. Returns True if Vector should respond.
+        """
+        try:
+            has_face = bool(self.memory and self.memory.current_faces)
+            face_ctx = "Una persona sta guardando Vector." if has_face else "Nessuna persona è visualmente prominente."
+            mood = self.memory.current_mood if self.memory else 50
+            mood_str = "di buon umore" if mood >= 60 else ("di cattivo umore" if mood <= 35 else "neutro")
+            prompt = (
+                f"{face_ctx}\n"
+                f"Vector è un robot curioso, amichevole e {mood_str}.\n"
+                f"Una persona nella stanza ha detto: \"{text}\"\n"
+                f"Vector deve intervenire nella conversazione? "
+                f"Considera se la persona parla di lui, gli fa una domanda indiretta, "
+                f"o se Vector ha qualcosa di genuinamente utile/divertente da aggiungere.\n"
+                f"Rispondi con UNA SOLA PAROLA: SI oppure NO"
+            )
+            messages = [{"role": "user", "content": prompt}]
+            response = await self.llm_client.chat_completion(messages, max_tokens=5, temperature=0.2)
+            return "SI" in response.upper()
+        except Exception as exc:
+            logger.debug(f"[Ambient] Relevance check failed: {exc}")
+            return False
+
+    def _fallback_to_pc_mic(self):
+        """Start PC microphone as fallback when Vector's AudioFeed is unavailable."""
+        device_id = int(os.getenv('MICROPHONE_DEVICE_ID', '1'))
+        logger.info(f"[Audio] Starting PC microphone fallback (device {device_id})...")
+        try:
+            self.audio_processor.start_listening(device=device_id)
+            logger.info(f"🎤 PC microphone active (device {device_id})")
         except Exception as e:
-            logger.error(f"Error processing audio: {e}", exc_info=True)
-    
+            logger.error(f"[Audio] PC microphone fallback also failed: {e}")
+
+    async def _vector_mic_stt_loop(self):
+        """
+        Sliding-window speech recognition for Vector's built-in microphone.
+
+        Bypasses webrtcvad (which cannot cope with Vector's motor noise floor).
+        Every SLIDE_SEC seconds we grab WINDOW_SEC of raw audio from the ring
+        buffer, run Whisper with its own Silero-based VAD, and check for the
+        wake word.  Whisper returns an empty string when no speech is present,
+        so in practice this is zero-cost during silence.
+        """
+        import tempfile
+        import wave as _wave
+
+        WINDOW_SEC = 4.0   # Duration of each Whisper window
+        SLIDE_SEC  = 1.5   # How often we re-run Whisper
+        MIN_BUF_SEC = 2.0  # Don't start until we have this much audio buffered
+
+        last_text = ""           # Dedup: skip if Whisper returns the same text twice
+        last_processed_end = 0.0  # epoch time when last command was dispatched
+
+        logger.info("[SlidingSTT] Sliding-window STT loop started (Whisper VAD, no webrtcvad)")
+
+        while self.running:
+            await asyncio.sleep(SLIDE_SEC)
+
+            try:
+                if not self.vector_mic or not self.speech_recognizer:
+                    continue
+
+                # Skip while TTS is speaking to avoid transcribing Vector's own voice
+                if self.audio_processor and self.audio_processor.is_muted:
+                    continue
+
+                buffered = self.vector_mic.buffered_seconds
+                if buffered < MIN_BUF_SEC:
+                    continue  # Not enough audio yet
+
+                audio_data = self.vector_mic.get_audio_window(WINDOW_SEC)
+                if not audio_data:
+                    continue
+
+                # Write to temp WAV
+                tmp = Path(tempfile.gettempdir()) / f"vec_slide_{datetime.now().strftime('%H%M%S_%f')}.wav"
+                try:
+                    with _wave.open(str(tmp), 'wb') as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(16000)
+                        wf.writeframes(audio_data)
+
+                    result = await self.speech_recognizer.transcribe(str(tmp))
+                    text = (result.get('text') or '').strip()
+
+                    if not text:
+                        last_text = ""  # Reset dedup so next real speech isn't blocked
+                        continue
+
+                    # Deduplicate: skip if Whisper returned the exact same sentence again
+                    if text == last_text:
+                        continue
+                    last_text = text
+
+                    confidence = result.get('confidence', 0.5)
+                    logger.info(f"[SlidingSTT] 📝 '{text}' (conf={confidence:.2f})")
+
+                    # --- Hallucination filter ---
+                    if hasattr(self.speech_recognizer, 'is_likely_hallucination'):
+                        is_conv = self.conversation_active
+                        bad, reason = self.speech_recognizer.is_likely_hallucination(text, confidence, is_conv)
+                        if bad:
+                            logger.debug(f"[SlidingSTT] 🚫 Hallucination ({reason}): '{text}'")
+                            continue
+
+                    # --- Wake word check ---
+                    wake_words = ["ciao vector", "ehi vector", "salve vector", "hey vector", "vector"]
+                    text_lower = text.lower()
+                    has_wake = any(w in text_lower for w in wake_words)
+
+                    # Cooldown: don't dispatch again within 3s of last command
+                    now = datetime.now().timestamp()
+                    if now - last_processed_end < 3.0 and not has_wake:
+                        continue
+
+                    if has_wake:
+                        self.conversation_active = True
+                        self.last_interaction_time = datetime.now()
+                        last_processed_end = now
+
+                        import re
+                        remaining = text
+                        for w in wake_words:
+                            remaining = re.sub(r'\b' + re.escape(w) + r'\b', '', remaining, flags=re.IGNORECASE)
+                        remaining = remaining.strip().strip(',').strip()
+
+                        logger.info(f"[SlidingSTT] 💬 Wake word detected. Command: '{remaining or '(none)'}'")
+                        if remaining:
+                            await self._handle_user_speech(remaining)
+                        else:
+                            if self.tts:
+                                if self.audio_processor:
+                                    self.audio_processor.discard_pending_utterances()
+                                await self.tts.speak("Sì? Come posso aiutarti?")
+
+                    elif self.conversation_active:
+                        expire_ok = (self.last_interaction_time is None or
+                                     (datetime.now() - self.last_interaction_time).total_seconds() < self.conversation_timeout)
+                        if expire_ok:
+                            self.last_interaction_time = datetime.now()
+                            last_processed_end = now
+                            logger.info(f"[SlidingSTT] 💬 Follow-up: '{text}'")
+                            await self._handle_user_speech(text)
+                        else:
+                            self.conversation_active = False
+                            logger.info("[SlidingSTT] Conversation timed out")
+
+                finally:
+                    try:
+                        tmp.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+
+            except Exception as exc:
+                logger.error(f"[SlidingSTT] Error: {exc}", exc_info=True)
+                await asyncio.sleep(2.0)
+
     def _trigger_emotion_animation(self, emotion: str, intensity: float = 0.5):
         """
         Trigger an animation based on emotion and intensity.
+        Fire-and-forget: never blocks the response pipeline.
         
         Args:
             emotion: Emotion name (joy, curiosity, confusion, etc.)
@@ -924,64 +1218,112 @@ class VectorAgent:
             return
             
         try:
-            # Info: ensure we have mapping info (visible at INFO for debugging)
-            emo_conf = animation_mapper.mapping.get(emotion) if animation_mapper else None
-            logger.info(f"Animation mapping for '{emotion}': {list(emo_conf['candidates'].keys()) if emo_conf and emo_conf.get('candidates') else 'None'}")
+            if not animation_mapper.should_trigger(emotion):
+                logger.debug(f"Animation probability check skipped for: {emotion}")
+                return
 
-            # Retry loop to tolerate transient ListAnimations timeouts or SDK delays
-            for attempt in range(1, 4):
-                if not animation_mapper.should_trigger(emotion):
-                    logger.info(f"Animation probability check FAILED for: {emotion} (attempt {attempt})")
-                    break
+            trigger = animation_mapper.pick_animation(emotion, intensity=intensity)
+            if not trigger:
+                logger.debug(f"No animation trigger found for emotion: {emotion}")
+                return
 
-                trigger = animation_mapper.pick_animation(emotion, intensity=intensity)
-                if not trigger:
-                    logger.info(f"No animation trigger found for emotion: {emotion} (attempt {attempt})")
-                    break
+            logger.info(f"🎭 Playing {emotion} animation: {trigger} (intensity: {intensity:.2f})")
 
-                logger.info(f"🎭 Playing {emotion} animation: {trigger} (intensity: {intensity:.2f}) [attempt {attempt}]")
+            try:
+                result = self.robot.anim.play_animation_trigger(trigger, ignore_body_track=True)
 
-                try:
-                    # Ensure animation list is available (this may trigger a ListAnimations call internally)
-                    _ = getattr(self.robot.anim, 'anim_trigger_list', None)
+                # If the SDK returned a coroutine/awaitable, schedule it fire-and-forget
+                if asyncio.iscoroutine(result) or hasattr(result, '__await__'):
+                    asyncio.create_task(result)
+                else:
+                    logger.debug(f"Animation play returned status: {result}")
 
-                    result = self.robot.anim.play_animation_trigger(trigger, ignore_body_track=True)
-
-                    # If the SDK returned a coroutine/awaitable, schedule it
-                    if asyncio.iscoroutine(result) or hasattr(result, '__await__'):
-                        asyncio.create_task(result)
-                    else:
-                        # SDK returned a status object synchronously (e.g., behavior response)
-                        logger.debug(f"Animation play returned status: {result}")
-
-                    # Success - break out of retry loop
-                    break
-
-                except Exception as play_ex:
-                    msg = str(play_ex)
-                    logger.warning(f"Attempt {attempt} failed to play animation '{trigger}': {msg}")
-
-                    # Handle specific transient errors by refreshing anim list and retrying
-                    if 'ListAnimations' in msg or 'ListAnimationTriggers' in msg or 'timed out' in msg or 'DEADLINE_EXCEEDED' in msg:
-                        try:
-                            logger.debug('Refreshing animation trigger list and retrying...')
-                            _ = getattr(self.robot.anim, 'anim_trigger_list', None)
-                        except Exception:
-                            pass
-                        # Small backoff before retry
-                        try:
-                            import time
-                            time.sleep(0.5 * attempt)
-                        except Exception:
-                            pass
-                        continue
-                    else:
-                        # Non-retryable - log and exit
-                        logger.warning(f"Failed to play emotion animation {emotion}: {play_ex}")
-                        break
+            except Exception as play_ex:
+                # Single attempt only — never retry/block
+                logger.warning(f"Animation '{trigger}' failed (non-blocking): {play_ex}")
         except Exception as e:
-            logger.warning(f"Unexpected error while attempting emotion animation {emotion}: {e}")
+            logger.warning(f"Unexpected error in emotion animation {emotion}: {e}")
     
+    async def handle_speech_for_wirepod(self, text: str) -> str:
+        """
+        Process transcribed speech from wire-pod's STT pipeline.
+
+        Called by the WirePodBridge HTTP server when wire-pod forwards a
+        user utterance.  Runs the full reasoning / memory / emotion pipeline,
+        speaks the response via our Italian gTTS, and returns the response text.
+
+        Wire-pod will receive back a " " (space) from the bridge so it does
+        NOT double-speak the response via Vector's English built-in TTS.
+
+        :param text: Transcribed speech from wire-pod.
+        :returns:    Italian response text.
+        """
+        logger.info(f"[WirePodBridge] 🎤 Processing: '{text}'")
+        try:
+            llm_client = self.llm_client if hasattr(self, "llm_client") else getattr(self, "openai_client", None)
+            if not self.reasoning_engine or not llm_client:
+                return "Ho avuto un problema tecnico."
+
+            from vector_personality.cognition.response_generator import ResponseGenerator
+
+            context = await self.reasoning_engine.assemble_context()
+            if self.context_builder:
+                context["memory_context"] = await self.context_builder.build_conversation_context(user_text=text)
+
+            response_gen = ResponseGenerator(
+                openai_client=llm_client,
+                personality_module=self.personality,
+            )
+            response = await response_gen.generate_response(
+                user_input=text,
+                conversation_history=self.conversation_history[-10:],
+                context=context,
+                mood=self.memory.current_mood if self.memory else 50,
+            )
+
+            # Update short-term conversation history
+            self.conversation_history.append({"role": "user", "content": text})
+            self.conversation_history.append({"role": "assistant", "content": response})
+            if len(self.conversation_history) > 10:
+                self.conversation_history = self.conversation_history[-10:]
+
+            # Persist to memory / embeddings
+            if self.db:
+                try:
+                    face_id = None
+                    if self.memory and self.memory.current_faces:
+                        face_id = list(self.memory.current_faces.keys())[0]
+                    await self.db.store_conversation(
+                        speaker_id=face_id,
+                        text=text,
+                        room_id=self.memory.current_room_id if self.memory else None,
+                        response_text=response,
+                        vector_db=self.vector_db,
+                        embedding_gen=self.embedding_gen,
+                    )
+                    if self.context_builder:
+                        self.context_builder.invalidate_cache()
+                except Exception as exc:
+                    logger.warning(f"[WirePodBridge] DB save failed: {exc}")
+
+            # Update conversation state so follow-ups via AudioFeed (if it works) work too
+            self.conversation_active = True
+            self.last_interaction_time = datetime.now()
+
+            logger.info(f"[WirePodBridge] 🤖 Response: '{response}'")
+
+            # Speak via our Italian gTTS (wire-pod will get " " back to avoid double-speak)
+            if self.tts:
+                if self.audio_processor:
+                    self.audio_processor.discard_pending_utterances()
+                await self.tts.speak(response)
+            
+            return response
+
+        except Exception as exc:
+            logger.error(f"[WirePodBridge] Error generating response: {exc}", exc_info=True)
+            return "Mi dispiace, si è verificato un errore."
+
     async def _handle_user_speech(self, text: str):
         """
         Handle transcribed user speech (T085).
@@ -989,6 +1331,11 @@ class VectorAgent:
         Args:
             text: Transcribed speech text
         """
+        # Prevent concurrent responses — discard incoming if already processing
+        if self._speech_processing:
+            logger.debug(f"⏭️ Already processing speech, skipping: '{text}'")
+            return
+        self._speech_processing = True
         try:
             # Note: Logging already done by caller (avoid duplicate "🎤 Heard:" messages)
             
@@ -1001,24 +1348,12 @@ class VectorAgent:
             if self.memory.current_faces:
                 face_id = list(self.memory.current_faces.keys())[0]
             
-            # If no face detected, use/create 'Unknown' user
-            if not face_id and self.db:
-                try:
-                    # Check for existing Unknown user
-                    rows = await self.db.query("SELECT face_id FROM faces WHERE name = ?", ('Unknown',))
-                    if rows:
-                        face_id = rows[0]['face_id']
-                    else:
-                        # Create Unknown user
-                        new_face_id = str(uuid.uuid4())
-                        await self.db.execute("""
-                            INSERT INTO faces (face_id, name, first_seen, last_seen, total_interactions)
-                            VALUES (?, ?, GETDATE(), GETDATE(), 0)
-                        """, (new_face_id, 'Unknown'))
-                        face_id = new_face_id
-                        logger.info(f"Created 'Unknown' user profile: {face_id}")
-                except Exception as e:
-                    logger.error(f"Failed to get/create Unknown user: {e}")
+            # If no face detected, reuse a single 'Unknown' face_id
+            if not face_id:
+                if not self.unknown_face_id:
+                    self.unknown_face_id = str(uuid.uuid4())
+                    logger.info(f"Using unknown face_id: {self.unknown_face_id}")
+                face_id = self.unknown_face_id
 
             # Generate LLM response (T083 + T121 Groq)
             llm_client = self.llm_client if hasattr(self, 'llm_client') else self.openai_client
@@ -1048,9 +1383,17 @@ class VectorAgent:
 
                 response = await response_gen.generate_response(
                     user_input=text,
+                    conversation_history=self.conversation_history[-10:],  # last 5 turns
                     context=context,
                     mood=self.memory.current_mood
                 )
+                
+                # Update short-term conversation history
+                self.conversation_history.append({"role": "user", "content": text})
+                self.conversation_history.append({"role": "assistant", "content": response})
+                # Keep max 10 entries (5 turns)
+                if len(self.conversation_history) > 10:
+                    self.conversation_history = self.conversation_history[-10:]
                 
                 logger.info(f"🤖 Response: {response}")
                 
@@ -1073,9 +1416,9 @@ class VectorAgent:
                 
                 # Speak response via TTS
                 if self.tts:
-                    # Clear audio buffer before speaking to discard any queued audio
+                    # Discard stale queued utterances without wiping the pre-roll ring buffer
                     if self.audio_processor:
-                        self.audio_processor.clear_buffer()
+                        self.audio_processor.discard_pending_utterances()
                     await self.tts.speak(response)
                 else:
                     self.robot.behavior.say_text(response)
@@ -1084,9 +1427,8 @@ class VectorAgent:
                 if not self.reasoning_engine:
                     logger.error("❌ reasoning_engine is None - check database connection")
                 if not llm_client:
-                    logger.error("❌ LLM client is None - check GROQ_API_KEY or OPENAI_API_KEY in api.env")
-                    logger.error("❌ GroqClient import status: " + str(GroqClient is not None))
-                    logger.error("❌ OpenAIClient import status: " + str(OpenAIClient is not None))
+                    logger.error("❌ LLM client is None - check Ollama is running or set GROQ_API_KEY/OPENAI_API_KEY in api.env")
+                    logger.error(f"❌ OllamaClient={OllamaClient is not None}, GroqClient={GroqClient is not None}, OpenAIClient={OpenAIClient is not None}")
                 
                 response = "I heard you, but my reasoning systems are not available."
                 logger.warning(response)
@@ -1116,7 +1458,9 @@ class VectorAgent:
         
         except Exception as e:
             logger.error(f"Error handling user speech: {e}", exc_info=True)
-    
+        finally:
+            self._speech_processing = False
+
     async def _update_emotion(self):
         """Update mood and eye color based on current state."""
         if not self.mood_engine or not self.eye_color_mapper:
@@ -1192,9 +1536,9 @@ class VectorAgent:
                 
                 # Speak the question via TTS (T082)
                 if self.tts:
-                    # Clear audio buffer before speaking to discard any queued audio
+                    # Discard stale queued utterances without wiping the pre-roll ring buffer
                     if self.audio_processor:
-                        self.audio_processor.clear_buffer()
+                        self.audio_processor.discard_pending_utterances()
                     logger.info("🔊 Speaking via TTS...")
                     await self.tts.speak(question)
                     logger.info("✅ TTS completed")
@@ -1452,6 +1796,16 @@ class VectorAgent:
                 except asyncio.CancelledError:
                     pass
             
+            # Stop Vector microphone feed
+            if self.vector_mic:
+                logger.info("Stopping Vector microphone feed...")
+                self.vector_mic.stop()
+
+            # Stop PC microphone (if it was used)
+            if self.audio_processor and self.audio_processor.stream:
+                logger.info("Stopping PC microphone...")
+                self.audio_processor.stop_listening()
+            
             # Stop face detection
             if self.face_detector:
                 logger.info("Stopping face detection...")
@@ -1510,7 +1864,10 @@ async def main():
         logger.info("Connecting to Vector...")
         # Allow overriding the target Vector IP via environment (e.g. api.env -> VECTOR_HOST)
         vector_ip = os.environ.get('VECTOR_HOST') or os.environ.get('VECTOR_IP')
-        robot_kwargs = {'enable_face_detection': True}
+        robot_kwargs = {
+            'enable_face_detection': True,
+            'enable_audio_feed': True,  # Enable microphone streaming from Vector
+        }
         if vector_ip:
             robot_kwargs['ip'] = vector_ip
             logger.info(f"Using explicit Vector IP from env: {vector_ip}")
