@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from vector_personality.memory.sql_server_connector import SQLServerConnector
+from vector_personality.memory.chromadb_connector import ChromaDBConnector as SQLServerConnector
 
 @pytest.mark.asyncio
 async def test_add_face_embedding_dedup(tmp_path, monkeypatch):

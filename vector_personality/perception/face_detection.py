@@ -12,7 +12,7 @@ from datetime import datetime
 import anki_vector
 from anki_vector.events import Events
 
-from vector_personality.memory import SQLServerConnector, WorkingMemory
+from vector_personality.memory import ChromaDBConnector as SQLServerConnector, WorkingMemory
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

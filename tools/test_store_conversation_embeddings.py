@@ -13,7 +13,7 @@ from datetime import datetime
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from vector_personality.memory.sql_server_connector import SQLServerConnector
+from vector_personality.memory.chromadb_connector import ChromaDBConnector as SQLServerConnector
 from vector_personality.memory.embedding_generator import EmbeddingGenerator
 from vector_personality.memory.vector_db_connector import VectorDBConnector
 

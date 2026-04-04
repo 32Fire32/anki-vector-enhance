@@ -1,11 +1,14 @@
 import anki_vector
 from anki_vector.events import Events
-import pyodbc
+import chromadb
+from chromadb.config import Settings
 from datetime import datetime
 import time
 import logging
 import os
 import sys
+import uuid
+import json
 
 # Imposta la working directory corretta
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,46 +22,65 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Configurazione database
-SERVER = '(localdb)\MSSQLLocalDB'
-DATABASE = 'Vector'
-DRIVER = 'ODBC Driver 17 for SQL Server'
+# Configurazione database (ChromaDB)
+CHROMADB_DIR = os.environ.get('CHROMADB_DIR', './vector_memory_chroma')
 
-connection_string = f"DRIVER={{{DRIVER}}};SERVER={SERVER};DATABASE={DATABASE};Trusted_Connection=yes;"
+# Initialize ChromaDB client and collections
+chroma_client = chromadb.PersistentClient(
+    path=CHROMADB_DIR,
+    settings=Settings(anonymized_telemetry=False, allow_reset=True),
+)
+
+_dummy_embedding = [0.0, 0.0, 0.0]
+
+supervisor_events = chroma_client.get_or_create_collection(
+    name="supervisor_events",
+    metadata={"hnsw:space": "cosine"},
+)
+
+def _store_event(event_type: str, data: dict):
+    """Store an event in ChromaDB supervisor_events collection."""
+    try:
+        eid = str(uuid.uuid4())
+        meta = {
+            "event_type": event_type,
+            "timestamp": datetime.now().isoformat(),
+        }
+        # ChromaDB metadata values must be str, int, float, or bool
+        for k, v in data.items():
+            if v is None:
+                meta[k] = ""
+            elif isinstance(v, (str, int, float, bool)):
+                meta[k] = v
+            else:
+                meta[k] = str(v)
+        supervisor_events.add(
+            ids=[eid],
+            embeddings=[_dummy_embedding],
+            metadatas=[meta],
+        )
+    except Exception as e:
+        logging.error(f"Errore nel salvataggio evento {event_type}: {e}")
+        logging.exception(e)
+
 
 def save_user_intent(robot, event_type, event):
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
     now = datetime.now()
-    try:      
+    try:
         intent_id = getattr(event, 'intent_id', None)
         json_data = getattr(event, 'json_data', None)
-
-        cursor.execute("""
-            INSERT INTO UserIntents (Timestamp, Intent_Id, Intent_Type)
-            VALUES (?, ?, ?)
-        """, (
-            datetime.now(),
-            intent_id,
-            json_data
-        ))
-        conn.commit()
-        print(f"✅ Evento save_user_intent salvato alle {datetime.now()}!")
+        _store_event("user_intent", {
+            "intent_id": intent_id or "",
+            "intent_type": json_data or "",
+        })
+        print(f"✅ Evento save_user_intent salvato alle {now}!")
     except Exception as e:
         logging.error(f"Errore nel salvataggio UserIntent: {e}")
         logging.exception(e)
-    finally:
-        try:
-            cursor.close()
-            conn.close()
-        except:
-            pass
 
 
 def save_observed_object(robot, event_type, event):
     print(f"evento:save_observed_object.")
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
     now = datetime.now()
     try:
         object_id = getattr(event, 'object_id', None)
@@ -70,38 +92,24 @@ def save_observed_object(robot, event_type, event):
         img_y = event.img_rect.y_top_left if event.img_rect else None
         img_w = event.img_rect.width if event.img_rect else None
         img_h = event.img_rect.height if event.img_rect else None
-            
-        cursor.execute("""
-            INSERT INTO ObservedObjects (Timestamp, Object_Id, Object_Type, Pos_X, Pos_Y, Pos_Z, Img_X, Img_Y, Img_W, Img_H)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            now,
-            object_id,
-            object_type,
-            pos_x,
-            pos_y,
-            pos_z,
-            img_x,
-            img_y,
-            img_w,
-            img_h
-        ))
-        conn.commit()
+        _store_event("observed_object", {
+            "object_id": object_id or "",
+            "object_type": object_type or "",
+            "pos_x": pos_x or 0.0,
+            "pos_y": pos_y or 0.0,
+            "pos_z": pos_z or 0.0,
+            "img_x": img_x or 0.0,
+            "img_y": img_y or 0.0,
+            "img_w": img_w or 0.0,
+            "img_h": img_h or 0.0,
+        })
         print(f"✅ evento salvato :save_observed_object.")
     except Exception as e:
         logging.error(f"Errore nel salvataggio ObservedObject: {e}")
         logging.exception(e)
-    finally:
-        try:
-            cursor.close()
-            conn.close()
-        except:
-            pass   
+
 
 def save_nav_map_update(robot, event_type, event):
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
-    now = datetime.now()
     print(f"evento:save_nav_map_update.")
     try:
         map_info = getattr(event, 'map_info', None)
@@ -109,28 +117,19 @@ def save_nav_map_update(robot, event_type, event):
         root_size_mm = getattr(map_info, 'root_size_mm', None)
         root_center_x = getattr(map_info, 'root_center_x', None)
         root_center_y = getattr(map_info, 'root_center_y', None)
-        cursor.execute("""
-            INSERT INTO NavMapUpdates (Timestamp, Root_Depth, Root_Size_MM, Root_Center_X, Root_Center_Y)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            now,
-            root_depth,
-            root_size_mm,
-            root_center_x,
-            root_center_y
-        ))
-        conn.commit()
+        _store_event("nav_map_update", {
+            "root_depth": root_depth or 0,
+            "root_size_mm": root_size_mm or 0.0,
+            "root_center_x": root_center_x or 0.0,
+            "root_center_y": root_center_y or 0.0,
+        })
         print(f"evento salvato :save_nav_map_update.")
-        cursor.close()
-        conn.close()
     except Exception as e:
         logging.error(f"Errore nel salvataggio NavMapUpdate: {e}")
         logging.exception(e)
 
+
 def save_robot_face(robot, event_type, event):
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
-    now = datetime.now()
     print(f"evento:save_robot_face.")
     try:
         face_id = event.face_id
@@ -141,36 +140,25 @@ def save_robot_face(robot, event_type, event):
         img_topLeft_y = event.img_rect.y_top_left if event.img_rect else None
         img_width = event.img_rect.width if event.img_rect else None
         img_height = event.img_rect.height if event.img_rect else None
-            
-        cursor.execute("""
-            INSERT INTO RobotFaces (Timestamp, Face_Id, Pose_X, Pose_Y, Pose_Z, Img_TopLeft_X, ImgTopLeft_Y, Img_Width, Img_Height)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            now,
-            face_id,
-            pose_x,
-            pose_y,
-            pose_z,
-            img_topLeft_x,
-            img_topLeft_y,
-            img_width,
-            img_height
-        ))
-        conn.commit()
+        _store_event("robot_face", {
+            "face_id": face_id or 0,
+            "pose_x": pose_x or 0.0,
+            "pose_y": pose_y or 0.0,
+            "pose_z": pose_z or 0.0,
+            "img_topleft_x": img_topLeft_x or 0.0,
+            "img_topleft_y": img_topLeft_y or 0.0,
+            "img_width": img_width or 0.0,
+            "img_height": img_height or 0.0,
+        })
         print(f"evento salvato:save_robot_face.")
-        cursor.close()
-        conn.close()
     except Exception as e:
         logging.error(f"Errore nel salvataggio RobotFace: {e}")
         logging.exception(e)
 
+
 def save_robot_state(robot, event_type, event):
-    conn = pyodbc.connect(connection_string)
-    cursor = conn.cursor()
-    now = datetime.now()
     print(f"evento:save_robot_state.")
     try:
-        # Parsing dei dati principali
         pose_x = event.pose.x if event.pose else None
         pose_y = event.pose.y if event.pose else None
         head_angle = event.head_angle_rad if hasattr(event, 'head_angle_rad') else None
@@ -179,14 +167,17 @@ def save_robot_state(robot, event_type, event):
         accel_z = event.accel.z if event.accel else None
         prox_distance = event.prox_data.distance_mm if event.prox_data else None
         touch_raw = event.touch_data.raw_touch_value if event.touch_data else None
-
-        # Inserimento nel database
-        cursor.execute("""
-            INSERT INTO RobotStates (Timestamp, EventType, Pose_X, Pose_Y, Head_Angle_Rad, Accel_X, Accel_Y, Accel_Z, Prox_Distance_MM, Touch_Raw_Value)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, now, "robot_state", pose_x, pose_y, head_angle, accel_x, accel_y, accel_z, prox_distance, touch_raw)
-        conn.commit()
-
+        _store_event("robot_state", {
+            "pose_x": pose_x or 0.0,
+            "pose_y": pose_y or 0.0,
+            "head_angle_rad": head_angle or 0.0,
+            "accel_x": accel_x or 0.0,
+            "accel_y": accel_y or 0.0,
+            "accel_z": accel_z or 0.0,
+            "prox_distance_mm": prox_distance or 0.0,
+            "touch_raw_value": touch_raw or 0,
+        })
+        now = datetime.now()
         print(f"✅ Evento robot_state salvato alle {now}!")
     except Exception as e:
         logging.error(f"Errore nel salvataggio RobotState: {e}")

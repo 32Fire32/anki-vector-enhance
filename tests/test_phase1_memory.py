@@ -13,7 +13,7 @@ from unittest.mock import Mock, AsyncMock, patch
 from vector_personality.memory import (
     WorkingMemory,
     TaskState,
-    SQLServerConnector,
+    ChromaDBConnector,
     initialize_database
 )
 

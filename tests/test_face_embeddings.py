@@ -1,7 +1,7 @@
 import numpy as np
 import asyncio
 
-from vector_personality.memory.sql_server_connector import SQLServerConnector
+from vector_personality.memory.chromadb_connector import ChromaDBConnector as SQLServerConnector
 
 
 def test_find_similar_faces(monkeypatch):

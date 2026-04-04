@@ -88,10 +88,5 @@ AUDIO_CONFIG = {
     'buffer_duration_sec': 10,           # Rolling window size
 }
 
-# Database configuration template
-DATABASE_CONFIG_TEMPLATE = {
-    'server': 'localhost',
-    'database': 'vector_memory',
-    'trusted_connection': True,
-    'timeout': 30,
-}
+# Database configuration (ChromaDB)
+DEFAULT_CHROMADB_DIR = './vector_memory_chroma'

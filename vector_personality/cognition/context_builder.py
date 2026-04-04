@@ -600,7 +600,7 @@ class ContextBuilder:
             return "?"
         if isinstance(value, datetime):
             return value.strftime("%Y-%m-%d %H:%M")
-        # pyodbc may return datetime already; otherwise fall back.
+        # ChromaDB may return datetime as string; parse if needed.
         try:
             return str(value)
         except Exception:

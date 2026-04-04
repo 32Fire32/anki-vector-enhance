@@ -33,8 +33,8 @@ logging.getLogger("anki_vector.connection").setLevel(logging.ERROR)
 
 # Import all modules
 from vector_personality.core.personality import PersonalityModule
-from vector_personality.core.config import DATABASE_CONFIG_TEMPLATE
-from vector_personality.memory.sql_server_connector import SQLServerConnector, initialize_database
+from vector_personality.core.config import DEFAULT_CHROMADB_DIR
+from vector_personality.memory.chromadb_connector import ChromaDBConnector, initialize_database
 from vector_personality.memory.working_memory import WorkingMemory, TaskState
 
 # Load environment variables from api.env
@@ -181,10 +181,9 @@ class VectorAgent:
         
         # Core modules
         # Load database configuration from environment variables
-        db_server = os.environ.get('DATABASE_SERVER', '(localdb)\\MSSQLlocalDB')
-        db_name = os.environ.get('DATABASE_NAME', 'vector_memory')
-        logger.info(f"Database: {db_server}/{db_name}")
-        self.db = SQLServerConnector(server=db_server, database=db_name)
+        chromadb_dir = os.environ.get('CHROMADB_DIR', DEFAULT_CHROMADB_DIR)
+        logger.info(f"Database: ChromaDB at {chromadb_dir}")
+        self.db = ChromaDBConnector(persist_directory=chromadb_dir)
         self.personality = PersonalityModule(self.db)
         self.memory = WorkingMemory()
         
@@ -1309,15 +1308,25 @@ class VectorAgent:
 
     async def _on_user_intent(self, robot, event_type, event):
         """Handle UserIntent events (Voice Commands)."""
+        # Wire-Pod intent feature → Italian user-text mapping
+        _FEATURE_TO_TEXT = {
+            "ReactToHello": "ciao",
+            "ReactToGoodMorning": "buongiorno",
+            "ReactToGoodNight": "buonanotte",
+            "ReactToHowAreYou": "come stai",
+            "ReactToThanks": "grazie",
+            "ReactToOk": "ok",
+            "ReactToHoldOn": "aspetta",
+            "ReactToEyeContact": "ciao",
+            "HeyVector": "hey vector",
+        }
         try:
             logger.info(f"🎤 User Intent Event Received")
             logger.info(f"   Event Type: {event_type}")
-            logger.info(f"   Event Object: {event}")
-            logger.info(f"   Event Attributes: {dir(event)}")
-            
+
             # Extract text if available
             text = None
-            
+
             # Try multiple attribute names (Wire-Pod, DDL, Anki formats)
             for attr in ['text', 'transcription', 'speech_text', 'query_text', 'user_text']:
                 if hasattr(event, attr):
@@ -1326,31 +1335,43 @@ class VectorAgent:
                         text = val
                         logger.info(f"   ✅ Found text in '{attr}': {text}")
                         break
-            
-            # Try json_data field (Wire-Pod sometimes uses this)
+
+            # Try json_data field — Wire-Pod sends intent details here
             if not text and hasattr(event, 'json_data'):
                 import json
                 try:
                     data = json.loads(event.json_data)
+                    # 1. Explicit speech text
                     text = data.get('text') or data.get('transcription')
                     if text:
-                        logger.info(f"   ✅ Found text in json_data: {text}")
-                except:
+                        logger.info(f"   ✅ Found transcription in json_data: {text}")
+                    else:
+                        # 2. Map active_feature to a known Italian utterance
+                        feature = data.get('active_feature', '')
+                        mapped = _FEATURE_TO_TEXT.get(feature)
+                        if mapped:
+                            text = mapped
+                            logger.info(f"   ✅ Mapped intent '{feature}' → '{text}'")
+                        elif feature:
+                            # Unknown feature — use a sanitised version as fallback
+                            text = feature.replace('ReactTo', '').lower()
+                            logger.info(f"   ⚠️ Unknown intent '{feature}', using: '{text}'")
+                except Exception:
                     pass
-            
+
             # If no text, log the intent name for debugging
             if not text and hasattr(event, 'intent'):
                 intent_name = event.intent.name if hasattr(event.intent, 'name') else str(event.intent)
                 logger.warning(f"   ⚠️ No text found. Intent name: {intent_name}")
                 text = f"User triggered intent: {intent_name}"
-            
+
             if text:
                 logger.info(f"   📝 Processing speech: '{text}'")
                 await self._handle_user_speech(text)
             else:
                 logger.warning("   ❌ Could not extract any text from UserIntent event")
-                logger.warning(f"   Event details: {event}")
-                
+                logger.debug(f"   Event details: {event}")
+
         except Exception as e:
             logger.error(f"Error handling user intent: {e}", exc_info=True)
     

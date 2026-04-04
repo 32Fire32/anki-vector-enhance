@@ -1,14 +1,15 @@
 # Vector Personality Project - Python Requirements
 
 ## Core SDK & Communication
-anki_vector>=1.0.0
+# Local Anki Vector SDK (modified version in ../anki_vector/)
+-e ../
 aiogrpc>=1.4
 cryptography
 grpcio>=1.30.0
 
 ## Database
-pyodbc>=4.0.32          # SQL Server connector (Windows Auth support)
-sqlalchemy>=1.4         # Optional ORM layer
+chromadb>=0.4.0         # Vector database for all persistence
+# sqlalchemy>=1.4       # Optional ORM layer (not needed with ChromaDB)
 
 ## AI/ML & APIs
 openai>=1.0.0           # ChatGPT API (GPT-4)
@@ -18,7 +19,9 @@ torchvision>=0.10.0     # For YOLOv5
 
 ## Audio & Speech
 librosa>=0.9.0          # Audio processing
-webrtcvad>=4.0.0        # Voice Activity Detection (VAD)
+webrtcvad>=2.0.10      # Voice Activity Detection (VAD) - requires Visual C++ Build Tools on Windows
+                       # Install via: pip install webrtcvad (if you have MSVC Build Tools installed)
+                       # Or skip if VAD is not needed for your use case
 PyAudio>=0.2.11         # Microphone input
 pydub>=0.25.1           # Audio format conversion
 scipy>=1.5.0            # Audio processing support

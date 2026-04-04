@@ -2,6 +2,7 @@ aiogrpc>=1.4
 cryptography
 flask
 googleapis-common-protos
+protobuf<=3.20.0        # Pinned to avoid incompatibility with generated .pb2 files
 numpy>=1.11
 Pillow>=3.3
 requests

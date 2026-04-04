@@ -48,7 +48,7 @@ except ImportError:
     RoomInference = None
 
 # Import Phase 1 dependencies
-from vector_personality.memory.sql_server_connector import SQLServerConnector
+from vector_personality.memory.chromadb_connector import ChromaDBConnector as SQLServerConnector
 from vector_personality.memory.working_memory import WorkingMemory
 
 
