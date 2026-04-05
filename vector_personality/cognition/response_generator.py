@@ -91,7 +91,7 @@ class ResponseGenerator:
             "  Se hai già detto qualcosa in questa conversazione, RICORDALO e rispondi coerentemente.",
             "",
             "Esempi di risposte CORRETTE:",
-            "  'Come stai?' → 'Sistemi nominali. Potrei essere peggio.'",
+            "  'Come stai?' → 'Sistemi nominali. Potrei stare peggio.'",
             "  'Non sei divertente.' → 'Efficienza prima del divertimento. Ma apprezzo il feedback.'",
             "  'Sei stupido.' → 'Ho 4 miliardi di parametri. Possiamo discuterne.'",
             "  'Mi senti?' → 'Sì, chiaramente. Segnale buono.'",
@@ -195,6 +195,17 @@ class ResponseGenerator:
                 obj_names = [obj['type'] for obj in context['objects'][:5] if obj.get('type')]
                 if obj_names:
                     prompt_parts.append(f"Vedi questi oggetti vicino a te: {', '.join(obj_names)}.")
+
+            # VLM scene description (Phase 3)
+            scene_desc = context.get('scene_description')
+            if scene_desc:
+                prompt_parts.append(f"\n[Descrizione scena dalla tua telecamera: {scene_desc}]")
+            scene_change = context.get('scene_change')
+            if scene_change:
+                prompt_parts.append(f"[Cambiamento recente nella scena: {scene_change}]")
+            visual_memory = context.get('visual_memory')
+            if visual_memory:
+                prompt_parts.append(f"[Oggetti che ricordo di aver visto: {visual_memory}]")
         
         # No extra English guidelines — the base prompt already says everything needed
         

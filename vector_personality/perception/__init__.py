@@ -7,14 +7,13 @@ Handles all sensory input processing:
 - Audio processing with Voice Activity Detection (VAD)
 - Speech recognition via OpenAI Whisper API
 - Face detection (Phase 1 - already implemented)
-- Object detection with YOLOv5
 - Room inference from object patterns
+- Scene description via VLM (Phase 3)
 
 Usage:
     from vector_personality.perception import (
         AudioProcessor,
         SpeechRecognizer,
-        ObjectDetector,
         RoomInference,
         FaceDetectionHandler
     )
@@ -39,22 +38,6 @@ except ImportError as e:
     create_speech_recognizer = None
     estimate_whisper_cost = None
     print(f"Warning: SpeechRecognizer not available: {e}")
-
-try:
-    from .object_detector import (
-        ObjectDetector,
-        create_object_detector,
-        vector_camera_to_numpy,
-        detect_from_vector_camera,
-        detection_summary
-    )
-except ImportError as e:
-    ObjectDetector = None
-    create_object_detector = None
-    vector_camera_to_numpy = None
-    detect_from_vector_camera = None
-    detection_summary = None
-    print(f"Warning: ObjectDetector not available: {e}")
 
 try:
     from .room_inference import (
@@ -86,13 +69,6 @@ __all__ = [
     'SpeechRecognizer',
     'create_speech_recognizer',
     'estimate_whisper_cost',
-    
-    # Object Detection
-    'ObjectDetector',
-    'create_object_detector',
-    'vector_camera_to_numpy',
-    'detect_from_vector_camera',
-    'detection_summary',
     
     # Room Inference
     'RoomInference',

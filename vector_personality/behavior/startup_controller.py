@@ -153,7 +153,11 @@ class StartupController:
         """
         try:
             logger.info("🔄 Scanning for faces (moving head)...")
-            
+
+            # Brief delay to let the gRPC connection stabilise after initial SDK connect
+            # (avoids "connection has been closed" on the first behavior command)
+            await asyncio.sleep(1.5)
+
             # Move head through range to scan for faces
             min_angle, max_angle = self.head_scan_angle_range
             
@@ -196,7 +200,7 @@ class StartupController:
             return None
             
         except Exception as e:
-            logger.error(f"Face scan error: {e}", exc_info=True)
+            logger.warning(f"Face scan skipped (connection not ready): {e}")
             return None
     
     async def _recognize_face(self, face_data: Dict[str, Any]) -> bool:

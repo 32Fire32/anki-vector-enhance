@@ -7,6 +7,7 @@ Replaces Groq/OpenAI cloud APIs with fully local inference.
 Features:
 - OpenAI-compatible chat completions (drop-in replacement)
 - Streaming support for real-time TTS
+- Vision/multimodal support (base64 images)
 - Zero cost, full privacy, no data leaves the machine
 - Automatic model availability checking
 
@@ -14,6 +15,8 @@ Phase 11 - Local AI Migration
 """
 
 import asyncio
+import base64
+import io
 import logging
 import random
 from typing import Optional, List, Dict, Any, AsyncIterator
@@ -220,6 +223,112 @@ class OllamaClient:
 
     def _get_fallback_response(self) -> str:
         return random.choice(self.FALLBACK_RESPONSES)
+
+    @staticmethod
+    def _pil_to_base64(image, max_size: int = 640) -> str:
+        """Convert a PIL Image to a base64-encoded JPEG string, enhanced for VLM."""
+        from PIL import Image as PILImage, ImageEnhance, ImageFilter
+
+        if isinstance(image, PILImage.Image):
+            img = image.copy()  # MUST copy — thumbnail() is in-place and would corrupt the SDK's cached image
+        else:
+            # numpy array → PIL (already a new object)
+            img = PILImage.fromarray(image)
+
+        # Resize keeping aspect ratio — keep max_size=640 to preserve Vector's native resolution
+        img.thumbnail((max_size, max_size))
+
+        # Enhance image quality to help the VLM handle Vector's low-quality camera
+        img = ImageEnhance.Contrast(img).enhance(1.4)   # boost contrast
+        img = ImageEnhance.Sharpness(img).enhance(2.5)  # sharpen edges
+        img = ImageEnhance.Brightness(img).enhance(1.1) # slight brightness lift
+
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=85)
+        return base64.b64encode(buf.getvalue()).decode("utf-8")
+
+    # ── public: vision completion ───────────────────────────
+
+    async def vision_completion(
+        self,
+        prompt: str,
+        image,
+        model: Optional[str] = None,
+        temperature: float = 0.5,
+        max_tokens: int = 200,
+        timeout_seconds: Optional[int] = None,
+    ) -> str:
+        """
+        Send an image + text prompt to a multimodal Ollama model.
+
+        Args:
+            prompt: Text instruction (e.g. "Describe what you see")
+            image: PIL Image or numpy array (will be resized & base64-encoded)
+            model: Vision model tag (default: gemma3:12b)
+            temperature: Sampling temperature
+            max_tokens: Max response tokens
+            timeout_seconds: Override default timeout for slow first-run
+
+        Returns:
+            Model's text description of the image
+        """
+        model = model or "gemma3:12b"
+        img_b64 = self._pil_to_base64(image)
+        logger.info(
+            f"\U0001f441\ufe0f VLM request: model={model}, "
+            f"image_b64_len={len(img_b64)}, prompt_len={len(prompt)}"
+        )
+
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt,
+                    "images": [img_b64],
+                }
+            ],
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+                "num_ctx": 4096,
+            },
+        }
+
+        timeout = aiohttp.ClientTimeout(
+            total=timeout_seconds or self.timeout.total
+        )
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    f"{self.base_url}/api/chat", json=payload
+                ) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        logger.error(f"Ollama vision HTTP {resp.status}: {body}")
+                        return ""
+                    data = await resp.json()
+                    content = data.get("message", {}).get("content", "").strip()
+                    total_dur = data.get("total_duration", 0) / 1e9
+                    eval_count = data.get("eval_count", 0)
+                    prompt_eval = data.get("prompt_eval_count", 0)
+                    logger.info(
+                        f"\U0001f441\ufe0f VLM response: {len(content)} chars, {total_dur:.2f}s, "
+                        f"prompt_tokens={prompt_eval}, eval_tokens={eval_count}"
+                    )
+                    if total_dur < 1.0:
+                        logger.warning(
+                            f"\U0001f441\ufe0f VLM suspiciously fast ({total_dur:.2f}s) — "
+                            f"image may not be processed. Full response keys: {list(data.keys())}"
+                        )
+                    return content
+        except asyncio.TimeoutError:
+            logger.warning("Ollama vision timeout")
+            return ""
+        except Exception as e:
+            logger.error(f"Ollama vision error: {e}")
+            return ""
 
     async def close(self):
         """No persistent connection to close."""

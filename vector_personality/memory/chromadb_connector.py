@@ -509,6 +509,87 @@ class ChromaDBConnector:
             return ""
 
     # ================================================================
+    #  VISUAL OBJECT MEMORY (VLM-observed objects with attributes)
+    # ================================================================
+
+    async def store_visual_memory(
+        self,
+        object_name: str,
+        description: str,
+        user_label: str = "",
+    ) -> str:
+        """
+        Upsert a visually-observed object with its full VLM description.
+
+        ``object_name`` is the normalised name (lowercase, e.g. "penna").
+        ``description`` is the raw VLM object line, e.g. "penna | rossa | Bic, sottile".
+        ``user_label`` is an optional human-given name (e.g. "stampante").
+        """
+        try:
+            result = self.objects.get(
+                where={"visual_memory_name": object_name},
+                include=["metadatas"],
+            )
+            now = _now_iso()
+            if result["ids"]:
+                oid = result["ids"][0]
+                meta = result["metadatas"][0]
+                meta["description"] = description
+                meta["last_seen"] = now
+                meta["seen_count"] = int(meta.get("seen_count", 1)) + 1
+                meta["updated_at"] = now
+                if user_label:
+                    meta["user_label"] = user_label
+                self.objects.update(ids=[oid], metadatas=[meta], embeddings=[self._dummy_embedding()])
+                return oid
+            else:
+                oid = str(uuid.uuid4())
+                meta = {
+                    "visual_memory_name": object_name,
+                    "description": description,
+                    "first_seen": now,
+                    "last_seen": now,
+                    "seen_count": 1,
+                    "user_label": user_label or "",
+                    # Keep compatibility with existing object_type field
+                    "object_type": f"visual:{object_name}",
+                    "created_at": now,
+                    "updated_at": now,
+                }
+                self.objects.add(ids=[oid], embeddings=[self._dummy_embedding()], metadatas=[meta])
+                logger.debug(f"Visual memory stored: {object_name} → {description}")
+                return oid
+        except Exception as e:
+            logger.error(f"store_visual_memory failed: {e}")
+            return ""
+
+    async def get_visual_memory(self) -> list:
+        """
+        Return all visually-memorised objects (those with ``visual_memory_name``).
+
+        Returns list of dicts: {object_name, description, first_seen, last_seen, seen_count}
+        """
+        try:
+            result = self.objects.get(
+                where={"object_type": {"$contains": "visual:"}},
+                include=["metadatas"],
+            )
+            entries = []
+            for meta in result.get("metadatas", []):
+                entries.append({
+                    "object_name": meta.get("visual_memory_name", ""),
+                    "description": meta.get("description", ""),
+                    "first_seen": meta.get("first_seen", ""),
+                    "last_seen": meta.get("last_seen", ""),
+                    "seen_count": int(meta.get("seen_count", 1)),
+                    "user_label": meta.get("user_label", ""),
+                })
+            return entries
+        except Exception as e:
+            logger.error(f"get_visual_memory failed: {e}")
+            return []
+
+    # ================================================================
     #  CONVERSATION STORAGE
     # ================================================================
 

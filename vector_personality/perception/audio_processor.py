@@ -17,6 +17,7 @@ import webrtcvad
 import numpy as np
 import wave
 import collections
+import time
 from typing import Optional, List
 from datetime import datetime, timedelta
 import logging
@@ -120,15 +121,30 @@ class AudioProcessor:
             return
             
         try:
-            # Determine how many channels the device actually supports.
-            # Many BT headsets only expose stereo (2-ch) input even though we want mono.
+            # Resolve device index — handle BT headsets whose IDs shift on reconnect
             dev_idx = device if device is not None else sd.default.device[0]
-            dev_info = sd.query_devices(dev_idx, 'input')
+            try:
+                dev_info = sd.query_devices(dev_idx, 'input')
+            except Exception:
+                dev_info = None
+
+            # If requested device is not an input or has 0 input channels, auto-detect
+            if dev_info is None or int(dev_info.get('max_input_channels', 0)) == 0:
+                logger.warning(
+                    f"🎤 Device {dev_idx} is not a valid input device — "
+                    "scanning for a working microphone..."
+                )
+                dev_idx, dev_info = self._find_input_device(dev_idx)
+                if dev_info is None:
+                    logger.error("🎤 No working input device found!")
+                    self.is_recording = False
+                    return
+
             max_ch = int(dev_info.get('max_input_channels', 1))
             channels = 1 if max_ch >= 1 else max_ch  # prefer mono; BT fallback handled below
             try:
                 self.stream = sd.InputStream(
-                    device=device,
+                    device=dev_idx,
                     channels=channels,
                     samplerate=self.sample_rate,
                     dtype='int16',
@@ -140,7 +156,7 @@ class AudioProcessor:
                 channels = max_ch or 2
                 logger.warning(f"Mono open failed for device {dev_idx}, retrying with {channels} channels")
                 self.stream = sd.InputStream(
-                    device=device,
+                    device=dev_idx,
                     channels=channels,
                     samplerate=self.sample_rate,
                     dtype='int16',
@@ -150,10 +166,44 @@ class AudioProcessor:
             self._open_channels = channels  # remember for downmix in callback
             self.stream.start()
             self.is_recording = True
-            logger.info(f"🎤 Microphone listening started: {dev_info['name']} ({channels}ch)")
+            self._stream_start_time = time.time()
+            self._total_frames = 0  # reset frame counter for health check
+            logger.info(f"🎤 Microphone listening started: {dev_info['name']} (device {dev_idx}, {channels}ch)")
         except Exception as e:
             logger.error(f"Failed to start microphone: {e}")
             self.is_recording = False  # ensure flag is clear so retries don't re-enter
+
+    @staticmethod
+    def _find_input_device(preferred_idx):
+        """Find a working input device, preferring one with a name matching the preferred device."""
+        all_devs = sd.query_devices()
+        # Try to get the name of the preferred device for matching
+        preferred_name = ""
+        try:
+            pref_dev = sd.query_devices(preferred_idx)
+            # Extract base name (e.g. "WH-CH510" from "Cuffia auricolare (WH-CH510)")
+            name = pref_dev.get('name', '')
+            # Look for parenthesized model name
+            import re
+            m = re.search(r'\(([^)]+)\)', name)
+            preferred_name = m.group(1) if m else name
+        except Exception:
+            pass
+
+        # First pass: find input device whose name contains the same model
+        if preferred_name:
+            for i, dev in enumerate(all_devs):
+                if dev['max_input_channels'] > 0 and preferred_name in dev.get('name', ''):
+                    logger.info(f"🎤 Auto-detected input device: {i} {dev['name']}")
+                    return i, dev
+
+        # Second pass: any input device that isn't the system mapper
+        for i, dev in enumerate(all_devs):
+            if dev['max_input_channels'] > 0 and 'mapper' not in dev.get('name', '').lower():
+                logger.info(f"🎤 Fallback input device: {i} {dev['name']}")
+                return i, dev
+
+        return None, None
     
     @staticmethod
     def list_devices():
@@ -176,6 +226,25 @@ class AudioProcessor:
             self.stream = None
             self.is_recording = False
             logger.info("🎤 Microphone listening stopped")
+
+    def check_health(self) -> bool:
+        """Check if the microphone stream is actually delivering frames.
+
+        Returns True if healthy (frames flowing), False if dead.
+        Logs a warning if the stream has been open for >5s with zero frames.
+        """
+        if not self.is_recording or not self.stream:
+            return False
+        elapsed = time.time() - getattr(self, '_stream_start_time', time.time())
+        total = getattr(self, '_total_frames', 0)
+        if elapsed > 5.0 and total == 0:
+            logger.warning(
+                f"🎤 ⚠️ Microphone stream open for {elapsed:.0f}s but ZERO frames received! "
+                "The audio device may be disconnected or in use by another app. "
+                "Check your Bluetooth headset connection or change MICROPHONE_DEVICE_ID."
+            )
+            return False
+        return True
 
     def _audio_callback(self, indata, frames, time, status):
         """Callback for sounddevice InputStream."""

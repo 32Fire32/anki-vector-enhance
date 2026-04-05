@@ -9,9 +9,8 @@ Test-Driven Development approach:
 Test Coverage:
 - AudioProcessor: VAD detection, buffer management, silence detection
 - SpeechRecognizer: Whisper API integration, confidence scoring, error handling
-- ObjectDetector: YOLOv5 inference, confidence filtering, COCO class mapping
 - RoomInference: Pattern matching, room type detection, database integration
-- Integration: End-to-end audio → speech → objects → room → database
+- Integration: End-to-end audio → speech → room → database
 """
 
 import pytest
@@ -36,11 +35,6 @@ try:
     from vector_personality.perception.speech_recognition import SpeechRecognizer
 except ImportError:
     SpeechRecognizer = None
-
-try:
-    from vector_personality.perception.object_detector import ObjectDetector
-except ImportError:
-    ObjectDetector = None
 
 try:
     from vector_personality.perception.room_inference import RoomInference
@@ -286,102 +280,6 @@ class TestSpeechRecognition:
 
 
 # ============================================================================
-# Test Class 3: ObjectDetector (YOLOv5 Integration)
-# ============================================================================
-
-@pytest.mark.skipif(ObjectDetector is None, reason="ObjectDetector not yet implemented")
-class TestObjectDetector:
-    """Test object detection with YOLOv5"""
-
-    def setup_method(self):
-        """Initialize ObjectDetector for each test"""
-        self.detector = ObjectDetector(
-            model_path="yolov5n.pt",  # Nano model for speed
-            confidence_threshold=0.5,
-            device="cpu"
-        )
-
-    def test_initialization(self):
-        """Test ObjectDetector initializes correctly"""
-        assert self.detector.confidence_threshold == 0.5
-        assert self.detector.device == "cpu"
-        assert self.detector.model is not None
-
-    def test_detect_objects_in_image(self):
-        """Test object detection on synthetic image"""
-        # Create dummy image (640x480 RGB)
-        image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        
-        detections = self.detector.detect(image)
-        
-        # Verify detection format
-        assert isinstance(detections, list)
-        for detection in detections:
-            assert "class" in detection
-            assert "confidence" in detection
-            assert "bbox" in detection
-            assert detection["confidence"] >= 0.5  # Threshold applied
-
-    def test_confidence_filtering(self):
-        """Test detections below threshold are filtered"""
-        # Create image
-        image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        
-        # Set high threshold
-        self.detector.confidence_threshold = 0.9
-        detections = self.detector.detect(image)
-        
-        # All detections should meet threshold
-        for detection in detections:
-            assert detection["confidence"] >= 0.9
-
-    def test_coco_class_mapping(self):
-        """Test COCO class IDs map to readable names"""
-        # Test known COCO classes
-        assert self.detector.get_class_name(0) == "person"
-        assert self.detector.get_class_name(56) == "chair"
-        assert self.detector.get_class_name(62) == "laptop"
-        assert self.detector.get_class_name(67) == "cell phone"
-
-    def test_detect_from_vector_camera(self):
-        """Test detection from Vector camera frame"""
-        # Mock Vector camera image (numpy array)
-        mock_camera_frame = np.random.randint(0, 255, (240, 320, 3), dtype=np.uint8)
-        
-        detections = self.detector.detect(mock_camera_frame)
-        
-        assert isinstance(detections, list)
-
-    def test_batch_detection(self):
-        """Test detecting objects in multiple frames"""
-        frames = [
-            np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-            for _ in range(5)
-        ]
-        
-        all_detections = self.detector.detect_batch(frames)
-        
-        assert len(all_detections) == 5
-        assert all(isinstance(d, list) for d in all_detections)
-
-    def test_fps_performance(self):
-        """Test detection speed meets >5 FPS requirement"""
-        import time
-        
-        # Create test image
-        image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        
-        # Measure detection time
-        start = time.time()
-        for _ in range(10):
-            self.detector.detect(image)
-        elapsed = time.time() - start
-        
-        fps = 10 / elapsed
-        assert fps >= 5.0, f"FPS {fps:.2f} below requirement (5 FPS)"
-
-
-# ============================================================================
 # Test Class 4: RoomInference (Pattern Matching)
 # ============================================================================
 
@@ -532,18 +430,17 @@ class TestRoomInference:
 
 @pytest.mark.skipif(
     AudioProcessor is None or SpeechRecognizer is None or 
-    ObjectDetector is None or RoomInference is None,
+    RoomInference is None,
     reason="Phase 2 modules not yet implemented"
 )
 class TestPerceptionIntegration:
-    """Test complete perception pipeline: audio → speech → objects → room → database"""
+    """Test complete perception pipeline: audio → speech → room → database"""
 
     @pytest.mark.asyncio
     async def setup_method(self):
         """Initialize all components"""
         self.audio = AudioProcessor(sample_rate=16000, frame_duration_ms=30)
         self.speech = SpeechRecognizer(api_key="test_key")
-        self.detector = ObjectDetector(model_path="yolov5n.pt")
         self.connector = SQLServerConnector()
         self.room_inference = RoomInference(self.connector)
         self.working_memory = WorkingMemory()
@@ -577,17 +474,11 @@ class TestPerceptionIntegration:
             speech_result = await self.speech.transcribe(audio_path)
             assert speech_result["text"] == "Where is my laptop?"
             
-            # Step 3: Object detection (simulate laptop detection)
-            image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-            detections = self.detector.detect(image)
-            
-            # Simulate laptop detection for test
+            # Step 3: Room inference (simulate detected objects)
             mock_detections = [
                 {"class": "laptop", "confidence": 0.92, "bbox": [100, 100, 200, 200]},
                 {"class": "desk", "confidence": 0.85, "bbox": [0, 200, 640, 480]}
             ]
-            
-            # Step 4: Room inference
             room_id = await self.room_inference.process_objects(mock_detections)
             assert room_id is not None
             
@@ -655,14 +546,6 @@ class TestPerceptionIntegration:
         audio_time = (time.time() - start) / 100
         assert audio_time < 0.030, f"Audio processing too slow: {audio_time*1000:.1f}ms"
         
-        # Object detection: >5 FPS
-        image = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        start = time.time()
-        for _ in range(10):
-            self.detector.detect(image)
-        detection_time = (time.time() - start) / 10
-        fps = 1 / detection_time
-        assert fps >= 5.0, f"Object detection too slow: {fps:.1f} FPS"
 
 
 # ============================================================================

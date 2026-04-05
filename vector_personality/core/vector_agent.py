@@ -14,6 +14,7 @@ import logging
 import signal
 import sys
 import os
+import time
 import uuid
 import random
 from datetime import datetime
@@ -84,14 +85,14 @@ except ImportError:
     LocalWhisperRecognizer = None
 
 try:
-    from vector_personality.perception.object_detector import ObjectDetector
-except ImportError:
-    ObjectDetector = None
-
-try:
     from vector_personality.perception.room_inference import RoomInference
 except ImportError:
     RoomInference = None
+
+try:
+    from vector_personality.perception.scene_descriptor import SceneDescriptor
+except ImportError:
+    SceneDescriptor = None
 
 try:
     from vector_personality.perception.text_to_speech import TextToSpeech
@@ -234,29 +235,6 @@ class VectorAgent:
                 logger.info(f"🎤 Local Whisper STT active (model={whisper_model}, Italian)")
             else:
                 logger.warning("⚠️ No speech recognizer available — install faster-whisper or set GROQ_API_KEY")
-        
-        # Object detection (YOLOv5)
-        # Note: Skip object detection initialization for now - it's causing startup delays
-        # Will be lazy-loaded on first camera frame
-        logger.info(f"ObjectDetector class available: {ObjectDetector is not None}")
-        self.object_detector = None
-        self._object_detector_class = ObjectDetector  # Save class for lazy init
-        self._yolo_model_path = None
-        self._last_object_persistence = {}  # Track last DB save time per object type
-
-        
-        # Check for YOLO model file availability
-        if ObjectDetector:
-            model_path = Path("yolov5n.pt")
-            if not model_path.exists():
-                model_path = Path("yolov5s.pt")
-            if model_path.exists():
-                self._yolo_model_path = str(model_path)
-                logger.info(f"📷 Object detection will use: {model_path} (lazy-loaded on first frame)")
-            else:
-                logger.warning(f"⚠️ No YOLO model found - object detection disabled")
-        else:
-            logger.warning("⚠️ ObjectDetector class not imported")
         
         # Room inference
         self.room_inference = RoomInference(self.db) if RoomInference else None
@@ -451,6 +429,40 @@ class VectorAgent:
         else:
             self.startup_controller = None
         
+        # Scene descriptor (VLM - Phase 3)
+        self.scene_descriptor = None
+        if SceneDescriptor and self.llm_client:
+            vlm_model = os.getenv('VLM_MODEL', 'gemma3:12b')
+            vlm_interval = float(os.getenv('VLM_INTERVAL', '8'))
+            chat_model = os.getenv('CHAT_MODEL', 'gemma3:4b')
+            # Verify requested VLM is available; fall back to gemma3:12b if not
+            try:
+                import requests as _req
+                _resp = _req.get(
+                    f"{os.getenv('OLLAMA_URL','http://localhost:11434')}/api/tags", timeout=3
+                )
+                _available = [m['name'] for m in _resp.json().get('models', [])]
+                if vlm_model not in _available:
+                    fallback = 'gemma3:12b'
+                    logger.warning(
+                        f"⚠️ VLM_MODEL '{vlm_model}' not yet available — falling back to {fallback}. "
+                        f"Run: ollama pull {vlm_model}"
+                    )
+                    vlm_model = fallback
+            except Exception:
+                pass  # If we can't check, just try the configured model
+            self.scene_descriptor = SceneDescriptor(
+                ollama_client=self.llm_client,
+                vlm_model=vlm_model,
+                chat_model=chat_model,
+                interval_seconds=vlm_interval,
+                cooldown_after_speak=12.0,
+                db_connector=self.db,
+            )
+            logger.info(f"\u2705 Scene descriptor initialized (VLM: {vlm_model}, every {vlm_interval}s)")
+        else:
+            logger.info("\u26a0\ufe0f Scene descriptor disabled (no LLM client or module not found)")
+
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -573,6 +585,37 @@ class VectorAgent:
         # Start Audio Loop as a background task
         self.audio_task = asyncio.create_task(self._audio_loop())
 
+        # Start Scene Descriptor loop (VLM - Phase 3)
+        if self.scene_descriptor:
+            def _get_camera_frame():
+                """Grab the latest camera frame from Vector."""
+                try:
+                    img = self.robot.camera.latest_image
+                    if img and img.raw_image is not None:
+                        return img.raw_image
+                except Exception:
+                    pass
+                return None
+
+            async def _on_scene_change(change_text: str):
+                """Called when VLM detects a meaningful scene change."""
+                logger.info(f"\U0001f441\ufe0f Scene change detected: {change_text}")
+                # Store in working memory so it appears in context
+                if self.memory:
+                    self.memory.last_scene_change = change_text
+                # Speak only if not in conversation AND rate-limit allows
+                if not self.conversation_active and self.tts and self.scene_descriptor.can_speak_proactively():
+                    self.scene_descriptor.last_proactive_speak_time = time.time()
+                    self.scene_descriptor.mark_spoke()
+                    await self.tts.speak(change_text)
+                    # Clear the change after speaking so it's not re-injected
+                    self.scene_descriptor.last_change_description = None
+
+            self.scene_task = asyncio.create_task(
+                self.scene_descriptor.start_loop(_get_camera_frame, _on_scene_change)
+            )
+            logger.info("\U0001f441\ufe0f Scene descriptor background loop started")
+
         # Start wire-pod OpenAI-compatible bridge server
         try:
             from vector_personality.api.wirepod_bridge import start_wirepod_bridge
@@ -612,9 +655,8 @@ class VectorAgent:
     async def _main_loop_iteration(self):
         """Execute one iteration of the main event loop."""
         try:
-            # 1. Process perception inputs (vision)
-            await self._process_perception()
             # Note: Audio is now processed in self._audio_loop() background task
+            # Vision is handled by SceneDescriptor background task (VLM)
             
             # 2. Update emotion state
             await self._update_emotion()
@@ -639,90 +681,7 @@ class VectorAgent:
         except Exception as e:
             logger.error(f"Error in main loop iteration: {e}", exc_info=True)
     
-    async def _process_perception(self):
-        """Process camera frames and audio for object/room detection."""
-        try:
-            # Lazy-load object detector on first camera frame
-            if self.object_detector is None and self._object_detector_class and self._yolo_model_path:
-                try:
-                    logger.info(f"📷 Loading YOLOv5 model: {self._yolo_model_path}")
-                    self.object_detector = self._object_detector_class(
-                        model_path=self._yolo_model_path,
-                        confidence_threshold=0.5,
-                        device="cpu"
-                    )
-                    logger.info(f"✅ Object detection loaded successfully")
-                except Exception as e:
-                    logger.error(f"❌ Failed to load object detector: {e}")
-                    self._object_detector_class = None  # Don't try again
-            
-            # Process camera frame for object detection
-            if self.object_detector and self.robot.camera:
-                try:
-                    # Get latest camera image
-                    try:
-                        latest_image = self.robot.camera.latest_image
-                    except VectorPropertyValueNotReadyException:
-                        # Camera not ready yet
-                        return
 
-                    if latest_image and latest_image.raw_image is not None:
-                        # Detect objects
-                        detections = self.object_detector.detect(latest_image.raw_image)
-                        
-                        # Log all detections immediately
-                        if detections:
-                            obj_list = [f"{d['class']}({d['confidence']:.2f})" for d in detections]
-                            logger.info(f"👁️ Detected {len(detections)} objects: {obj_list}")
-                        
-                        # Update working memory with detections
-                        for detection in detections:
-                            self.memory.observe_object(
-                                object_type=detection['class'],
-                                confidence=detection['confidence'],
-                                location_description="in view"
-                            )
-                            
-                            # Persist to database (Throttled: max once per 5s per object type)
-                            obj_type = detection['class']
-                            now = datetime.now()
-                            last_save = self._last_object_persistence.get(obj_type)
-                            
-                            if not last_save or (now - last_save).total_seconds() > 5:
-                                try:
-                                    object_id = await self.db.store_object_detection(
-                                        object_type=obj_type,
-                                        confidence=detection['confidence'],
-                                        room_id=self.memory.current_room_id,
-                                        location_description="in view"
-                                    )
-                                    logger.info(f"💿 Persisted to database: {obj_type} (ID: {object_id})")
-                                    self._last_object_persistence[obj_type] = now
-                                except Exception as e:
-                                    logger.error(f"Failed to persist object to database: {e}")
-                        
-                        # Infer room type from objects
-                        if self.room_inference and detections:
-                            room_type = self.room_inference.infer_room_type(detections)
-                            if room_type != "unknown":
-                                current_room = self.memory.current_room
-                                if current_room != room_type:
-                                    self.memory.set_room(room_type)
-                                    logger.info(f"📍 Room changed: {current_room} → {room_type}")
-                                    # Store in database
-                                    await self.room_inference.store_room_visit(room_type)
-                    else:
-                        # Camera image not available
-                        if not hasattr(self, '_camera_warning_shown'):
-                            logger.warning("⚠️ Camera image not available (latest_image is None)")
-                            self._camera_warning_shown = True
-                
-                except Exception as e:
-                    logger.error(f"❌ Camera processing error: {e}", exc_info=True)
-            
-        
-        except Exception as e:
-            logger.error(f"Error processing perception: {e}", exc_info=True)
     
     async def _audio_loop(self):
         """
@@ -838,6 +797,8 @@ class VectorAgent:
                 elif self.audio_processor.max_energy < 100:
                     logger.info(f"🎤 Signal check: energy={self.audio_processor.max_energy:.2f} "
                                 f"vad={self.audio_processor.speech_detected} (low - speak louder)")
+                    # Check for dead microphone stream
+                    self.audio_processor.check_health()
                 else:
                     logger.info(f"🎤 Mic active: energy={self.audio_processor.max_energy:.2f} "
                                 f"vad={self.audio_processor.speech_detected} ✅")
@@ -907,8 +868,9 @@ class VectorAgent:
                             continue
                         
                         # Filter 1: Confidence threshold (prevent garbled transcriptions)
-                        # Relaxed from 0.7 to 0.5 - Whisper is conservative with confidence scores
-                        if confidence < 0.5:
+                        # Relaxed from 0.5 to 0.4 - Whisper char-rate proxy is very conservative
+                        # for short Italian phrases like "Cosa vedi?" (10 chars / 1.5s = 0.44)
+                        if confidence < 0.4:
                             logger.debug(f"⚠️ Low confidence ({confidence:.2f}), ignoring: \"{text}\"")
                             continue
                         
@@ -1381,6 +1343,23 @@ class VectorAgent:
                 except Exception as e:
                     logger.debug(f'Could not set announce_faces flag in context: {e}')
 
+                # Inject VLM scene description + visual memory if available (Phase 3)
+                if self.scene_descriptor and self.scene_descriptor.last_description:
+                    context['scene_description'] = self.scene_descriptor.last_description
+                    if self.scene_descriptor.last_change_description:
+                        context['scene_change'] = self.scene_descriptor.last_change_description
+                    # Summarize remembered objects for the chat LLM (include user labels)
+                    if self.scene_descriptor.visual_memory:
+                        vm_lines = []
+                        for v in list(self.scene_descriptor.visual_memory.values())[-6:]:
+                            desc = v["description"]
+                            label = v.get("user_label", "")
+                            if label:
+                                vm_lines.append(f"{desc} (il proprietario mi ha detto che è: {label})")
+                            else:
+                                vm_lines.append(desc)
+                        context['visual_memory'] = "; ".join(vm_lines)
+
                 response = await response_gen.generate_response(
                     user_input=text,
                     conversation_history=self.conversation_history[-10:],  # last 5 turns
@@ -1420,6 +1399,9 @@ class VectorAgent:
                     if self.audio_processor:
                         self.audio_processor.discard_pending_utterances()
                     await self.tts.speak(response)
+                    # Notify scene descriptor about speech (cooldown avoids scanning own TTS)
+                    if self.scene_descriptor:
+                        self.scene_descriptor.mark_spoke()
                 else:
                     self.robot.behavior.say_text(response)
             else:
@@ -1447,6 +1429,11 @@ class VectorAgent:
                     )
                     logger.info("💿 Conversation saved to database")
 
+                    # Detect if the user taught Vector about an object
+                    # E.g. Vector asked "What is this black box?" → user said "It's a printer"
+                    if self.scene_descriptor and self.scene_descriptor.visual_memory:
+                        await self._detect_object_teaching(text, response)
+
                     # Invalidate cached base context so the next user turn can recall this memory.
                     if self.context_builder:
                         try:
@@ -1460,6 +1447,83 @@ class VectorAgent:
             logger.error(f"Error handling user speech: {e}", exc_info=True)
         finally:
             self._speech_processing = False
+
+    # ------------------------------------------------------------------ #
+    #  Object teaching — learn what things are from the user              #
+    # ------------------------------------------------------------------ #
+
+    _TEACH_DETECT_PROMPT = (
+        "The user said: \"{user_text}\"\n"
+        "The assistant (a robot) previously asked or commented about what it sees.\n"
+        "Objects the robot currently sees: {objects}\n\n"
+        "Is the user telling the robot the NAME or IDENTITY of an object it sees?\n"
+        "Examples of teaching:\n"
+        "  user: 'è una stampante' → YES: object=black box, label=stampante\n"
+        "  user: 'quello è Storm del film Cars' → YES: object=car, label=Storm\n"
+        "  user: 'si chiama Alexa' → YES: object=device, label=Alexa\n"
+        "Examples of NOT teaching:\n"
+        "  user: 'come stai?' → NO\n"
+        "  user: 'gira a destra' → NO\n\n"
+        "If YES, reply EXACTLY: TEACH|<object_key>|<user_label>\n"
+        "  <object_key> must be one of the object names from the list above.\n"
+        "  <user_label> is the name the user gave it.\n"
+        "If NO, reply EXACTLY: NO"
+    )
+
+    async def _detect_object_teaching(self, user_text: str, response: str):
+        """
+        After a conversation turn, check if the user taught Vector what
+        an object is, and persist the association.
+        """
+        try:
+            obj_names = list(self.scene_descriptor.visual_memory.keys())
+            if not obj_names:
+                return
+            objects_str = ", ".join(obj_names)
+
+            prompt = self._TEACH_DETECT_PROMPT.format(
+                user_text=user_text,
+                objects=objects_str,
+            )
+            result = await self.llm_client.chat_completion(
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.0,
+                max_tokens=40,
+            )
+            if not result or not result.strip().startswith("TEACH|"):
+                return
+
+            parts = result.strip().split("|", 2)
+            if len(parts) != 3:
+                return
+
+            _, obj_key, user_label = parts
+            obj_key = obj_key.strip().lower()
+            user_label = user_label.strip()
+
+            if not obj_key or not user_label:
+                return
+
+            # Find matching object in visual memory (fuzzy substring match)
+            match_key = None
+            for vm_key in self.scene_descriptor.visual_memory:
+                if obj_key in vm_key or vm_key in obj_key:
+                    match_key = vm_key
+                    break
+            if not match_key:
+                for vm_key in self.scene_descriptor.visual_memory:
+                    if any(w in vm_key for w in obj_key.split()):
+                        match_key = vm_key
+                        break
+            if not match_key:
+                logger.debug(f"👁️ Teach detection: no visual memory match for '{obj_key}'")
+                return
+
+            await self.scene_descriptor.teach_object(match_key, user_label)
+            logger.info(f"🧠 Learned from user: '{match_key}' is '{user_label}'")
+
+        except Exception as e:
+            logger.debug(f"👁️ Object teaching detection failed: {e}")
 
     async def _update_emotion(self):
         """Update mood and eye color based on current state."""
@@ -1757,13 +1821,11 @@ class VectorAgent:
         print(f"  Current room: {self.memory.current_room or 'Unknown'}")
         
         # Perception stats
-        if self.object_detector:
-            fps = 1.0 / (sum(self.object_detector.inference_times[-10:]) / len(self.object_detector.inference_times[-10:])) if self.object_detector.inference_times else 0
-            print(f"\nPerception:")
-            print(f"  Object detection: {self.object_detector.total_detections} objects in {self.object_detector.total_frames} frames")
-            print(f"  Detection FPS: {fps:.1f}")
-            if self.room_inference and self.memory.current_room:
-                print(f"  Room confidence: {self.room_inference.last_room_type or 'unknown'}")
+        if self.scene_descriptor:
+            print(f"\nPerception (VLM):")
+            print(f"  VLM scans: {self.scene_descriptor.total_scans}")
+            print(f"  Changes detected: {self.scene_descriptor.total_changes}")
+            print(f"  Objects in memory: {len(self.scene_descriptor.visual_memory)}")
         
         # Budget status removed (T122)
         
@@ -1845,12 +1907,24 @@ async def main():
         
         asyncio.run(run())
     """
+    # Ensure stdout/stderr can handle emoji on Windows (cp1252 → utf-8)
+    if sys.stdout.encoding and sys.stdout.encoding.lower().replace('-', '') != 'utf8':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        except AttributeError:
+            pass
+    if sys.stderr.encoding and sys.stderr.encoding.lower().replace('-', '') != 'utf8':
+        try:
+            sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        except AttributeError:
+            pass
+
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler('vector_agent.log'),
+            logging.FileHandler('vector_agent.log', encoding='utf-8'),
             logging.StreamHandler(sys.stdout)
         ]
     )

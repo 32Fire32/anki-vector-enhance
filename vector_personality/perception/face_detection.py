@@ -235,7 +235,6 @@ class FaceDetectionHandler:
         import os
         import numpy as np
         from datetime import datetime
-        from vector_personality.perception.object_detector import vector_camera_to_numpy
 
         # Environment-based thresholds
         merge_window = int(os.getenv('FACE_MERGE_WINDOW_SECONDS', '3600'))
@@ -257,7 +256,7 @@ class FaceDetectionHandler:
             # Capture a single camera frame (synchronous SDK call)
             logger.info("📸 Capturing face crop for embedding generation...")
             camera_image = self.robot.camera.capture_single_image()
-            image_array = vector_camera_to_numpy(camera_image)
+            image_array = np.array(camera_image.raw_image)
 
             # Lazy-import facenet components
             try:

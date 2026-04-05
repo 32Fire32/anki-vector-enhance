@@ -88,8 +88,7 @@ class RoomInference:
         Infer room type from object detections
         
         Args:
-            detections: List of detections from ObjectDetector
-                Each detection should have "class" and "confidence" keys
+            detections: List of detection dicts with "class" and "confidence" keys
         
         Returns:
             Room type string or "unknown" if no match
@@ -191,7 +190,7 @@ class RoomInference:
         4. Update state tracking
         
         Args:
-            detections: List of detections from ObjectDetector
+            detections: List of detection dicts
         
         Returns:
             Room UUID or None if inference failed
@@ -381,7 +380,7 @@ def describe_room_confidence(scores: Dict[str, float]) -> str:
 
 
 async def detect_and_infer_room(
-    object_detector,
+    detector,
     room_inference,
     image: Any
 ) -> tuple:
@@ -389,7 +388,7 @@ async def detect_and_infer_room(
     Detect objects and infer room type in one call
     
     Args:
-        object_detector: ObjectDetector instance
+        detector: Object detector instance
         room_inference: RoomInference instance
         image: Image as numpy array
     
@@ -397,7 +396,7 @@ async def detect_and_infer_room(
         Tuple of (detections, room_id, room_type)
     """
     # Detect objects
-    detections = object_detector.detect(image)
+    detections = detector.detect(image)
     
     # Infer room and update database
     room_id = await room_inference.process_objects(detections)
