@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vector Dashboard</title>
+    <style>
+      :root {
+        --bg: #1a1a2e;
+        --bg2: #16213e;
+        --bg3: #0f3460;
+        --accent: #e94560;
+        --green: #4ecca3;
+        --yellow: #f0c040;
+        --text: #eee;
+        --text2: #aab;
+        --radius: 8px;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      /* Header */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 24px;
+        background: var(--bg2);
+        border-bottom: 2px solid var(--bg3);
+      }
+      header h1 {
+        font-size: 1.3rem;
+        font-weight: 600;
+      }
+      header h1 span {
+        color: var(--accent);
+      }
+      .status-pill {
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .status-stopped {
+        background: #555;
+      }
+      .status-starting {
+        background: var(--yellow);
+        color: #333;
+      }
+      .status-running {
+        background: var(--green);
+        color: #1a1a2e;
+      }
+      .status-error {
+        background: var(--accent);
+      }
+
+      /* Tabs */
+      .tabs {
+        display: flex;
+        background: var(--bg2);
+        border-bottom: 1px solid var(--bg3);
+      }
+      .tab-btn {
+        padding: 10px 28px;
+        background: none;
+        border: none;
+        color: var(--text2);
+        font-size: 0.95rem;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        transition: 0.2s;
+      }
+      .tab-btn:hover {
+        color: var(--text);
+      }
+      .tab-btn.active {
+        color: var(--green);
+        border-bottom-color: var(--green);
+      }
+
+      .tab-content {
+        display: none;
+        padding: 20px 24px;
+      }
+      .tab-content.active {
+        display: block;
+      }
+
+      /* Cards */
+      .card {
+        background: var(--bg2);
+        border: 1px solid var(--bg3);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        margin-bottom: 16px;
+      }
+      .card h3 {
+        font-size: 0.9rem;
+        color: var(--text2);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 10px;
+      }
+
+      /* Dashboard grid */
+      .dash-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 900px) {
+        .dash-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+      }
+      .info-label {
+        color: var(--text2);
+      }
+      .info-val {
+        font-weight: 600;
+      }
+
+      /* Mood bar */
+      .mood-bar-wrap {
+        height: 16px;
+        background: #333;
+        border-radius: 8px;
+        overflow: hidden;
+        margin: 8px 0;
+      }
+      .mood-bar {
+        height: 100%;
+        border-radius: 8px;
+        transition:
+          width 0.5s ease,
+          background 0.5s ease;
+      }
+      .mood-label {
+        text-align: center;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+
+      /* Buttons */
+      .btn {
+        padding: 10px 32px;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-start {
+        background: var(--green);
+        color: var(--bg);
+      }
+      .btn-start:hover:not(:disabled) {
+        filter: brightness(1.15);
+      }
+      .btn-stop {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-stop:hover:not(:disabled) {
+        filter: brightness(1.15);
+      }
+      .btn-sm {
+        padding: 6px 16px;
+        font-size: 0.85rem;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--green);
+        color: var(--green);
+      }
+      .btn-outline:hover {
+        background: var(--green);
+        color: var(--bg);
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 12px;
+      }
+
+      /* Monitor */
+      .monitor-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      @media (max-width: 1000px) {
+        .monitor-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .log-box {
+        background: #111;
+        border: 1px solid #333;
+        border-radius: var(--radius);
+        padding: 10px;
+        height: 350px;
+        overflow-y: auto;
+        font-family: "Cascadia Code", "Fira Code", monospace;
+        font-size: 0.78rem;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .log-box .log-line {
+        padding: 1px 0;
+      }
+      .log-line.ERROR {
+        color: #ff6b6b;
+      }
+      .log-line.WARNING {
+        color: var(--yellow);
+      }
+      .log-line.INFO {
+        color: #8be9fd;
+      }
+
+      .frame-box {
+        background: #111;
+        border: 1px solid #333;
+        border-radius: var(--radius);
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+      }
+      .frame-box img {
+        max-width: 100%;
+        max-height: 320px;
+        object-fit: contain;
+      }
+      .frame-placeholder {
+        color: #555;
+        font-size: 0.9rem;
+      }
+      .frame-label {
+        position: absolute;
+        top: 6px;
+        left: 10px;
+        font-size: 0.7rem;
+        color: var(--text2);
+        background: rgba(0, 0, 0, 0.6);
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      .context-box {
+        background: #111;
+        border: 1px solid #333;
+        border-radius: var(--radius);
+        padding: 10px;
+        height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.78rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+        color: #bbb;
+      }
+
+      /* Settings */
+      .settings-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        max-width: 800px;
+      }
+      @media (max-width: 700px) {
+        .settings-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      .field label {
+        display: block;
+        font-size: 0.85rem;
+        color: var(--text2);
+        margin-bottom: 4px;
+      }
+      .field select,
+      .field input {
+        width: 100%;
+        padding: 8px 12px;
+        background: #111;
+        border: 1px solid #444;
+        border-radius: var(--radius);
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+      .field select:focus,
+      .field input:focus {
+        outline: none;
+        border-color: var(--green);
+      }
+      .settings-note {
+        margin-top: 16px;
+        font-size: 0.82rem;
+        color: var(--text2);
+      }
+      .save-row {
+        margin-top: 16px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .save-msg {
+        font-size: 0.85rem;
+        color: var(--green);
+      }
+
+      /* VLM objects list */
+      .obj-list {
+        list-style: none;
+        max-height: 160px;
+        overflow-y: auto;
+      }
+      .obj-list li {
+        padding: 3px 0;
+        font-size: 0.85rem;
+        border-bottom: 1px solid #222;
+      }
+      .obj-list li:last-child {
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1><span>Vector</span> Dashboard</h1>
+      <div id="statusPill" class="status-pill status-stopped">STOPPED</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="monitor">Monitor</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- ===================== DASHBOARD TAB ===================== -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="dash-grid">
+        <!-- Robot Info -->
+        <div class="card">
+          <h3>Robot Info</h3>
+          <div class="info-row">
+            <span class="info-label">Name</span
+            ><span class="info-val" id="rName">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Serial</span
+            ><span class="info-val" id="rSerial">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">IP</span
+            ><span class="info-val" id="rIp">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">LLM</span
+            ><span class="info-val" id="rLlm">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">VLM</span
+            ><span class="info-val" id="rVlm">—</span>
+          </div>
+        </div>
+
+        <!-- Mood -->
+        <div class="card">
+          <h3>Mood</h3>
+          <div class="mood-label" id="moodVal">50</div>
+          <div class="mood-bar-wrap">
+            <div
+              class="mood-bar"
+              id="moodBar"
+              style="width: 50%; background: var(--yellow)"
+            ></div>
+          </div>
+          <div
+            style="
+              display: flex;
+              justify-content: space-between;
+              font-size: 0.75rem;
+              color: var(--text2);
+            "
+          >
+            <span>Sad (0)</span><span>Neutral (50)</span
+            ><span>Happy (100)</span>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div
+          class="card"
+          style="
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <h3>Controls</h3>
+          <div class="controls">
+            <button class="btn btn-start" id="btnStart" onclick="doStart()">
+              START
+            </button>
+            <button
+              class="btn btn-stop"
+              id="btnStop"
+              onclick="doStop()"
+              disabled
+            >
+              STOP
+            </button>
+          </div>
+          <div
+            id="ctrlMsg"
+            style="margin-top: 10px; font-size: 0.85rem; color: var(--text2)"
+          ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== MONITOR TAB ===================== -->
+    <div id="tab-monitor" class="tab-content">
+      <div class="monitor-grid">
+        <!-- Logs -->
+        <div class="card" style="grid-column: span 2">
+          <h3>Live Logs</h3>
+          <div class="log-box" id="logBox"></div>
+        </div>
+
+        <!-- VLM Frame -->
+        <div class="card">
+          <h3>
+            VLM Frame
+            <span
+              id="vlmTime"
+              style="font-size: 0.75rem; color: var(--text2)"
+            ></span>
+          </h3>
+          <div class="frame-box" id="vlmFrameBox">
+            <span class="frame-placeholder">No VLM frame yet</span>
+          </div>
+          <div style="margin-top: 8px">
+            <h3 style="margin-top: 8px">VLM Response</h3>
+            <div class="context-box" id="vlmResponse">—</div>
+          </div>
+        </div>
+
+        <!-- Camera + Objects -->
+        <div class="card">
+          <h3>
+            Live Camera
+            <button
+              class="btn btn-sm btn-outline"
+              id="btnCam"
+              onclick="toggleCamera()"
+              style="margin-left: 12px"
+            >
+              Enable
+            </button>
+          </h3>
+          <div class="frame-box" id="camFrameBox">
+            <span class="frame-placeholder">Camera disabled</span>
+          </div>
+          <div style="margin-top: 8px">
+            <h3 style="margin-top: 8px">Detected Objects</h3>
+            <ul class="obj-list" id="objList">
+              <li style="color: #555">—</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- LLM Context -->
+        <div class="card" style="grid-column: span 2">
+          <h3>LLM Context</h3>
+          <div class="context-box" id="llmContext">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SETTINGS TAB ===================== -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <h3>Configuration (api.env)</h3>
+        <div class="settings-grid" id="settingsGrid">
+          <div class="field">
+            <label for="sLlm">LLM Model (OLLAMA_MODEL)</label>
+            <select id="sLlm"></select>
+          </div>
+          <div class="field">
+            <label for="sVlm">VLM Model (VLM_MODEL)</label>
+            <select id="sVlm"></select>
+          </div>
+          <div class="field">
+            <label for="sWhisper">Whisper Model (WHISPER_MODEL)</label>
+            <select id="sWhisper">
+              <option value="tiny">tiny</option>
+              <option value="base">base</option>
+              <option value="small">small</option>
+              <option value="medium">medium</option>
+              <option value="large-v3">large-v3</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sVlmInt">VLM Scan Interval (seconds)</label>
+            <input type="number" id="sVlmInt" min="3" max="60" value="8" />
+          </div>
+          <div class="field">
+            <label for="sAudio">Audio Source (AUDIO_SOURCE)</label>
+            <select id="sAudio">
+              <option value="pc">PC Microphone</option>
+              <option value="vector">Vector Microphone</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sMicId">Microphone Device ID</label>
+            <input type="number" id="sMicId" min="0" max="20" value="1" />
+          </div>
+          <div class="field">
+            <label for="sAmbient">Ambient Mode</label>
+            <select id="sAmbient">
+              <option value="true">Enabled</option>
+              <option value="false">Disabled</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="sMemHours">Startup Memory Hours</label>
+            <input type="number" id="sMemHours" min="1" max="720" value="72" />
+          </div>
+        </div>
+        <div class="save-row">
+          <button class="btn btn-start btn-sm" onclick="saveSettings()">
+            Save Settings
+          </button>
+          <span class="save-msg" id="saveMsg"></span>
+        </div>
+        <p class="settings-note">
+          Settings are applied on the next START. Change values, save, then
+          restart the agent.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      // ===================== TAB SWITCHING =====================
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document
+            .querySelectorAll(".tab-btn")
+            .forEach((b) => b.classList.remove("active"));
+          document
+            .querySelectorAll(".tab-content")
+            .forEach((c) => c.classList.remove("active"));
+          btn.classList.add("active");
+          document
+            .getElementById("tab-" + btn.dataset.tab)
+            .classList.add("active");
+        });
+      });
+
+      // ===================== WEBSOCKET =====================
+      let ws = null;
+      let logLines = [];
+      const MAX_LOG_LINES = 500;
+
+      function connectWS() {
+        const proto = location.protocol === "https:" ? "wss" : "ws";
+        ws = new WebSocket(`${proto}://${location.host}/ws`);
+        ws.onmessage = (evt) => {
+          const d = JSON.parse(evt.data);
+          updateUI(d);
+        };
+        ws.onclose = () => {
+          setTimeout(connectWS, 2000);
+        };
+        ws.onerror = () => {
+          ws.close();
+        };
+      }
+      connectWS();
+
+      // ===================== UI UPDATE =====================
+      function updateUI(d) {
+        // Status pill
+        const pill = document.getElementById("statusPill");
+        pill.textContent = d.status.toUpperCase();
+        pill.className = "status-pill status-" + d.status;
+
+        // Robot info
+        document.getElementById("rName").textContent = d.robot_name || "—";
+        document.getElementById("rSerial").textContent = d.robot_serial || "—";
+        document.getElementById("rIp").textContent = d.robot_ip || "—";
+        document.getElementById("rLlm").textContent = d.llm_model || "—";
+        document.getElementById("rVlm").textContent = d.vlm_model || "—";
+
+        // Mood
+        const mood = d.mood ?? 50;
+        document.getElementById("moodVal").textContent = mood;
+        const bar = document.getElementById("moodBar");
+        bar.style.width = mood + "%";
+        if (mood < 30) bar.style.background = "var(--accent)";
+        else if (mood < 70) bar.style.background = "var(--yellow)";
+        else bar.style.background = "var(--green)";
+
+        // Controls
+        const running = d.status === "running" || d.status === "starting";
+        document.getElementById("btnStart").disabled = running;
+        document.getElementById("btnStop").disabled = !running;
+        if (d.error) document.getElementById("ctrlMsg").textContent = d.error;
+
+        // Logs
+        if (d.logs && d.logs.length) {
+          const box = document.getElementById("logBox");
+          d.logs.forEach((line) => {
+            logLines.push(line);
+            if (logLines.length > MAX_LOG_LINES) logLines.shift();
+          });
+          renderLogs();
+        }
+
+        // VLM frame
+        if (d.vlm_frame) {
+          document.getElementById("vlmFrameBox").innerHTML =
+            `<span class="frame-label">VLM ${d.vlm_timestamp || ""}</span>` +
+            `<img src="data:image/jpeg;base64,${d.vlm_frame}" alt="VLM frame">`;
+        }
+        if (d.vlm_response !== null && d.vlm_response !== undefined) {
+          document.getElementById("vlmResponse").textContent = d.vlm_response;
+        }
+        document.getElementById("vlmTime").textContent = d.vlm_timestamp
+          ? `@ ${d.vlm_timestamp}`
+          : "";
+
+        // Objects
+        if (d.vlm_objects && d.vlm_objects.length) {
+          document.getElementById("objList").innerHTML = d.vlm_objects
+            .map((o) => `<li>${escHtml(o)}</li>`)
+            .join("");
+        }
+
+        // Camera
+        const camBtn = document.getElementById("btnCam");
+        camBtn.textContent = d.camera_enabled ? "Disable" : "Enable";
+        if (d.camera_frame) {
+          document.getElementById("camFrameBox").innerHTML =
+            `<span class="frame-label">Live</span>` +
+            `<img src="data:image/jpeg;base64,${d.camera_frame}" alt="Camera">`;
+        } else if (!d.camera_enabled) {
+          document.getElementById("camFrameBox").innerHTML =
+            `<span class="frame-placeholder">Camera disabled</span>`;
+        }
+
+        // LLM context
+        if (d.last_llm_context) {
+          document.getElementById("llmContext").textContent =
+            d.last_llm_context;
+        }
+      }
+
+      function renderLogs() {
+        const box = document.getElementById("logBox");
+        const atBottom =
+          box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+        box.innerHTML = logLines
+          .map((l) => {
+            let cls = "";
+            if (l.includes(" - ERROR - ") || l.includes("ERROR")) cls = "ERROR";
+            else if (l.includes(" - WARNING - ") || l.includes("WARNING"))
+              cls = "WARNING";
+            else if (l.includes(" - INFO - ")) cls = "INFO";
+            return `<div class="log-line ${cls}">${escHtml(l)}</div>`;
+          })
+          .join("");
+        if (atBottom) box.scrollTop = box.scrollHeight;
+      }
+
+      function escHtml(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // ===================== CONTROLS =====================
+      async function doStart() {
+        document.getElementById("ctrlMsg").textContent = "Starting...";
+        const r = await fetch("/api/start", { method: "POST" });
+        const j = await r.json();
+        if (!j.ok)
+          document.getElementById("ctrlMsg").textContent = j.error || "Failed";
+      }
+
+      async function doStop() {
+        document.getElementById("ctrlMsg").textContent = "Stopping...";
+        const r = await fetch("/api/stop", { method: "POST" });
+        const j = await r.json();
+        if (!j.ok)
+          document.getElementById("ctrlMsg").textContent = "Failed to stop";
+      }
+
+      async function toggleCamera() {
+        await fetch("/api/camera/toggle", { method: "POST" });
+      }
+
+      // ===================== SETTINGS =====================
+      async function loadSettings() {
+        // Load current settings
+        const r = await fetch("/api/settings");
+        const s = await r.json();
+
+        // Load available models
+        const mr = await fetch("/api/models");
+        const md = await mr.json();
+        const models = md.models || [];
+
+        // Populate model dropdowns
+        populateSelect("sLlm", models, s.OLLAMA_MODEL || "gemma3:4b");
+        populateSelect("sVlm", models, s.VLM_MODEL || "llava:7b");
+
+        // Set other fields
+        setVal("sWhisper", s.WHISPER_MODEL || "small");
+        setVal("sVlmInt", s.VLM_INTERVAL || "8");
+        setVal("sAudio", s.AUDIO_SOURCE || "pc");
+        setVal("sMicId", s.MICROPHONE_DEVICE_ID || "1");
+        setVal("sAmbient", s.AMBIENT_MODE || "true");
+        setVal("sMemHours", s.STARTUP_MEMORY_HOURS || "72");
+      }
+
+      function populateSelect(id, options, selected) {
+        const el = document.getElementById(id);
+        el.innerHTML = options
+          .map(
+            (o) =>
+              `<option value="${escHtml(o)}" ${o === selected ? "selected" : ""}>${escHtml(o)}</option>`,
+          )
+          .join("");
+        // If selected not in options, add it
+        if (selected && !options.includes(selected)) {
+          el.innerHTML =
+            `<option value="${escHtml(selected)}" selected>${escHtml(selected)}</option>` +
+            el.innerHTML;
+        }
+      }
+
+      function setVal(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.value = val;
+      }
+
+      async function saveSettings() {
+        const body = {
+          OLLAMA_MODEL: document.getElementById("sLlm").value,
+          VLM_MODEL: document.getElementById("sVlm").value,
+          WHISPER_MODEL: document.getElementById("sWhisper").value,
+          VLM_INTERVAL: document.getElementById("sVlmInt").value,
+          AUDIO_SOURCE: document.getElementById("sAudio").value,
+          MICROPHONE_DEVICE_ID: document.getElementById("sMicId").value,
+          AMBIENT_MODE: document.getElementById("sAmbient").value,
+          STARTUP_MEMORY_HOURS: document.getElementById("sMemHours").value,
+        };
+        const r = await fetch("/api/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const j = await r.json();
+        const msg = document.getElementById("saveMsg");
+        if (j.ok) {
+          msg.textContent = "Saved! Changes apply on next START.";
+          msg.style.color = "var(--green)";
+        } else {
+          msg.textContent = j.error || "Save failed";
+          msg.style.color = "var(--accent)";
+        }
+        setTimeout(() => {
+          msg.textContent = "";
+        }, 4000);
+      }
+
+      // Load settings on page load
+      loadSettings();
+    </script>
+  </body>
+</html>

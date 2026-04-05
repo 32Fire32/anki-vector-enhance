@@ -6,3 +6,5 @@ protobuf<=3.20.0        # Pinned to avoid incompatibility with generated .pb2 fi
 numpy>=1.11
 Pillow>=3.3
 requests
+fastapi
+uvicorn[standard]

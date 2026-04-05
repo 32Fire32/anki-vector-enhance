@@ -17,6 +17,7 @@ Performance Target: <3s for typical sentence
 
 import logging
 import asyncio
+import concurrent.futures
 from typing import Optional, Any
 from pathlib import Path
 from datetime import datetime
@@ -73,6 +74,13 @@ class TextToSpeech:
         # Temp directory for audio files
         self.temp_dir = Path(tempfile.gettempdir()) / "vector_tts"
         self.temp_dir.mkdir(exist_ok=True)
+
+        # Dedicated executor for blocking I/O (gTTS network call, pydub conversion,
+        # SDK stream_wav_file).  Isolated from the asyncio loop's default executor
+        # so loop lifecycle events never cause 'cannot schedule new futures' errors.
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="tts"
+        )
         
         logger.info(f"TextToSpeech initialized: gTTS (FREE), language={self.language}, speed={self.speed}")
         if self.monotone:
@@ -127,31 +135,44 @@ class TextToSpeech:
                 # Create gTTS object
                 # slow=True if speed < 1.0 for slower speech
                 tts = gTTS(text=clean_text, lang=self.language, slow=(speed < 1.0))
-                
-                # Save to temp file
-                tts.save(str(audio_path))
+
+                # Run blocking I/O + CPU work in a dedicated thread executor so
+                # the event loop stays free for audio streaming.  We use
+                # self._executor (not None / the loop default) to avoid
+                # 'cannot schedule new futures after shutdown' errors.
+                loop = asyncio.get_running_loop()
+
+                # 1. Save MP3 (network round-trip to Google TTS, ~300-500ms)
+                await loop.run_in_executor(self._executor, tts.save, str(audio_path))
                 logger.info(f"Audio saved: {audio_path}")
-                
-                # Convert audio to Vector-compatible format (12kHz)
-                converted_path = self._convert_audio_for_vector(audio_path)
+
+                # 2. Convert + apply robotic filter (pydub + numpy, ~200-400ms)
+                converted_path = await loop.run_in_executor(
+                    self._executor, self._convert_audio_for_vector, audio_path
+                )
                 if converted_path:
                     play_path = converted_path
                 else:
                     play_path = audio_path
-                
+
                 # Play through Vector's speakers
                 # Mute microphone before TTS playback to prevent feedback loop
                 if self.audio_processor:
                     self.audio_processor.mute()
-                
+
                 try:
-                    # Try to play the WAV file directly
-                    self.robot.audio.stream_wav_file(str(play_path), volume=100)
+                    # 3. Stream WAV to Vector (blocking SDK call — keep in executor
+                    #    so the event loop isn't stalled during playback)
+                    await loop.run_in_executor(
+                        self._executor, self.robot.audio.stream_wav_file, str(play_path), 100
+                    )
                     logger.info("✅ Audio played successfully via stream_wav_file")
                 except Exception as e:
                     logger.warning(f"stream_wav_file failed: {e}, falling back to say_text")
                     try:
-                        self.robot.behavior.say_text(text)
+                        await loop.run_in_executor(
+                            self._executor, self.robot.behavior.say_text, text
+                        )
                         logger.info("✅ Audio played successfully via say_text fallback")
                     except Exception as e2:
                         logger.error(f"All TTS methods failed: {e2}")

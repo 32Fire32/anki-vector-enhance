@@ -16,10 +16,18 @@ Phase 11 - Local AI Migration
 
 import asyncio
 import base64
+import concurrent.futures
 import io
 import logging
 import random
 from typing import Optional, List, Dict, Any, AsyncIterator
+
+# Dedicated executor for CPU-bound PIL image enhancement.
+# Isolated from the asyncio loop's default executor so that loop lifecycle
+# events (shutdown_default_executor, loop.close) never affect image processing.
+_PIL_EXECUTOR = concurrent.futures.ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="ollama-img"
+)
 
 import aiohttp
 
@@ -273,7 +281,11 @@ class OllamaClient:
             Model's text description of the image
         """
         model = model or "gemma3:12b"
-        img_b64 = self._pil_to_base64(image)
+        # Run CPU-intensive PIL enhancement in a dedicated thread executor so the
+        # event loop stays free.  Uses an isolated executor (not the loop default)
+        # to avoid 'cannot schedule new futures after shutdown' errors.
+        loop = asyncio.get_running_loop()
+        img_b64 = await loop.run_in_executor(_PIL_EXECUTOR, self._pil_to_base64, image)
         logger.info(
             f"\U0001f441\ufe0f VLM request: model={model}, "
             f"image_b64_len={len(img_b64)}, prompt_len={len(prompt)}"

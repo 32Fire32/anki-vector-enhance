@@ -464,8 +464,14 @@ class VectorAgent:
             logger.info("\u26a0\ufe0f Scene descriptor disabled (no LLM client or module not found)")
 
         # Register signal handlers for graceful shutdown
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        # Only works in the main thread; when launched from the GUI dashboard the agent
+        # runs in a background thread — catch ValueError and skip (dashboard uses its
+        # own stop mechanism via agent.running / agent.shutdown_event).
+        try:
+            signal.signal(signal.SIGINT, self._signal_handler)
+            signal.signal(signal.SIGTERM, self._signal_handler)
+        except ValueError:
+            logger.debug("Signal handlers not registered (not main thread — GUI mode)")
         
         logger.info("✅ Vector Agent initialized successfully")
     

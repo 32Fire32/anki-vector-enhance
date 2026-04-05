@@ -15,6 +15,7 @@ Performance (RTX 5070 Ti):
 """
 
 import asyncio
+import concurrent.futures
 import logging
 import math
 import time
@@ -83,6 +84,13 @@ class LocalWhisperRecognizer:
         self.total_failures = 0
         self.total_audio_seconds = 0.0
 
+        # Dedicated executor for blocking Whisper inference.
+        # Isolated from the asyncio loop's default executor to avoid
+        # 'cannot schedule new futures after shutdown' errors.
+        self._executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="whisper"
+        )
+
         logger.info(
             f"LocalWhisperRecognizer ready: model={model_size} "
             f"device={self.device} compute={self.compute_type} "
@@ -117,9 +125,9 @@ class LocalWhisperRecognizer:
         :param prompt: Optional initial prompt for Whisper.
         :returns: dict with keys: text, confidence, language, duration_seconds
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
-            None, self._transcribe_sync, audio_path, prompt
+            self._executor, self._transcribe_sync, audio_path, prompt
         )
 
     def _transcribe_sync(self, audio_path: str, prompt: Optional[str]) -> Dict[str, Any]:
