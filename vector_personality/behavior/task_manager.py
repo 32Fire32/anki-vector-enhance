@@ -18,21 +18,16 @@ Dependencies:
 """
 
 import asyncio
+import logging
 from enum import Enum
 from typing import Dict, List, Optional, Callable, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 import heapq
 
+from vector_personality.memory.working_memory import TaskState
 
-class TaskState(Enum):
-    """Task execution states"""
-    IDLE = "idle"
-    LISTENING = "listening"
-    PROCESSING = "processing"
-    EXPLORING = "exploring"
-    LEARNING = "learning"
-    PAUSED = "paused"
+logger = logging.getLogger(__name__)
 
 
 class TaskPriority(Enum):
@@ -76,7 +71,7 @@ class TaskManager:
         personality_module,
         state_machine,
         db_connector,
-        idle_timeout_seconds: int = 300  # 5 minutes default
+        idle_timeout_seconds: int = 60  # 1 minute default
     ):
         """
         Initialize TaskManager
@@ -112,7 +107,7 @@ class TaskManager:
         # Default cooldown periods (seconds)
         self.cooldown_periods = {
             'curiosity_question': 120,  # 2 minutes
-            'exploration': 300,  # 5 minutes
+            'exploration': 90,  # 1.5 minutes
             'learning': 60,  # 1 minute
             'greeting': 30  # 30 seconds
         }
@@ -122,7 +117,7 @@ class TaskManager:
             TaskState.IDLE: [TaskState.LISTENING, TaskState.EXPLORING, TaskState.PAUSED],
             TaskState.LISTENING: [TaskState.PROCESSING, TaskState.IDLE, TaskState.PAUSED],
             TaskState.PROCESSING: [TaskState.IDLE, TaskState.LEARNING, TaskState.PAUSED],
-            TaskState.EXPLORING: [TaskState.IDLE, TaskState.LEARNING, TaskState.LISTENING, TaskState.PAUSED],
+            TaskState.EXPLORING: [TaskState.IDLE, TaskState.LEARNING, TaskState.LISTENING, TaskState.PROCESSING, TaskState.PAUSED],
             TaskState.LEARNING: [TaskState.IDLE, TaskState.PROCESSING, TaskState.PAUSED],
             TaskState.PAUSED: [TaskState.IDLE, TaskState.LISTENING, TaskState.EXPLORING, TaskState.LEARNING]
         }
@@ -147,10 +142,11 @@ class TaskManager:
                 # Map TaskState to StateMachine states if needed
                 self.state_machine.current_state = new_state.value
             
-            # Log transition
-            await self._log_state_transition(old_state, new_state)
+            logger.info(f"📋 State transition: {old_state.value} → {new_state.value}")
             
             return True
+        else:
+            logger.warning(f"📋 Invalid state transition: {self.current_state.value} → {new_state.value} (not allowed)")
         return False
     
     async def add_task(
@@ -357,9 +353,13 @@ class TaskManager:
     # ========================================================================
     
     async def _exploration_callback(self):
-        """Default exploration callback"""
+        """Default exploration callback (auto-triggered after idle timeout)."""
         # Transition to EXPLORING state
         await self.transition_to(TaskState.EXPLORING)
+        # Note: the actual driving/turning is handled by autonomy_controller's
+        # _exploration_callback.  This task_manager callback is the one used by
+        # trigger_exploration_if_idle() — it only sets the state.  When the
+        # autonomy_controller finishes, it transitions back to IDLE.
         return "exploration_started"
     
     async def _log_state_transition(self, old_state: TaskState, new_state: TaskState):
@@ -402,7 +402,7 @@ def create_task_manager(
     personality_module,
     state_machine,
     db_connector,
-    idle_timeout_seconds: int = 300
+    idle_timeout_seconds: int = 60
 ) -> TaskManager:
     """
     Factory function to create TaskManager instance
@@ -412,7 +412,7 @@ def create_task_manager(
         personality_module: PersonalityModule instance
         state_machine: StateMachine instance (Phase 3)
         db_connector: SQLServerConnector instance
-        idle_timeout_seconds: Idle timeout (default: 300s = 5 minutes)
+        idle_timeout_seconds: Idle timeout (default: 60s = 1 minute)
         
     Returns:
         Configured TaskManager instance

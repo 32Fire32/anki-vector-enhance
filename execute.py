@@ -27,6 +27,8 @@ from pathlib import Path
 from typing import Optional
 
 import uvicorn
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -98,6 +100,11 @@ class AgentBridge:
         self._thread: Optional[threading.Thread] = None
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._tasks_to_cancel = []  # Async tasks to cancel on shutdown
+        # Unified chat handler (shared by web chat + Telegram)
+        self._chat_handler = None
+        self._telegram_bot = None
+        # Standalone chat — always available even without robot
+        self._standalone_chat = None
 
     def snapshot(self) -> dict:
         """Return a JSON-safe snapshot of current state."""
@@ -123,6 +130,18 @@ class AgentBridge:
 
 
 bridge = AgentBridge()
+
+# Initialize standalone chat immediately (no robot needed — just Ollama + DB)
+def _init_standalone_chat():
+    try:
+        from vector_personality.api.standalone_chat import StandaloneChatHandler
+        sc = StandaloneChatHandler()
+        sc.initialize()          # Lazy-safe: will retry on first message if Ollama is not yet up
+        bridge._standalone_chat = sc
+    except Exception as e:
+        logging.getLogger("execute").warning(f"StandaloneChat init skipped: {e}")
+
+_init_standalone_chat()
 
 # ---------------------------------------------------------------------------
 # Logging handler that pushes records into the bridge's queue
@@ -238,8 +257,13 @@ async def _run_agent_async():
         # Install hooks BEFORE starting the agent loop
         _install_hooks(agent)
 
+        # Unified chat handler (web + Telegram share the same brain)
+        from vector_personality.api.chat_handler import ChatHandler
+        bridge._chat_handler = ChatHandler(agent)
+
         await agent.start()
     finally:
+        bridge._chat_handler = None
         bridge._agent = None
         try:
             robot.disconnect()
@@ -266,8 +290,9 @@ def _install_hooks(agent):
                 with bridge.lock:
                     bridge.vlm_frame_b64 = b64
                     bridge.vlm_timestamp = datetime.now().strftime("%H:%M:%S")
+                _hook_log.info(f"VLM frame captured ({len(b64)} chars)")
             except Exception as e:
-                _hook_log.debug(f"VLM frame capture failed: {e}")
+                _hook_log.warning(f"VLM frame capture failed: {e}")
             result = await original_extract(image)
             with bridge.lock:
                 bridge.vlm_objects = list(result) if result else []
@@ -465,7 +490,31 @@ def get_available_models() -> list:
 # ---------------------------------------------------------------------------
 # FastAPI app
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Vector Dashboard")
+_log = logging.getLogger("execute")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Start Telegram at uvicorn boot; stop it on shutdown."""
+    try:
+        from vector_personality.api.telegram_bot import start_telegram_bot
+        bridge._telegram_bot = await start_telegram_bot(bridge)
+        if bridge._telegram_bot:
+            _log.info("Telegram bot started at app startup")
+    except Exception as e:
+        _log.warning(f"Telegram bot not started: {e}")
+
+    yield  # application runs
+
+    if bridge._telegram_bot:
+        try:
+            await bridge._telegram_bot.stop()
+        except Exception:
+            pass
+        bridge._telegram_bot = None
+
+
+app = FastAPI(title="Vector Dashboard", lifespan=_lifespan)
 
 # Serve static files
 static_dir = Path(__file__).parent / "static"
@@ -532,6 +581,63 @@ async def toggle_camera():
     with bridge.lock:
         bridge.camera_enabled = not bridge.camera_enabled
         return {"camera_enabled": bridge.camera_enabled}
+
+
+# ---------------------------------------------------------------------------
+# Chat API (web chat + shared with Telegram via ChatHandler)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/chat")
+async def api_chat(body: dict):
+    """Handle a text chat message from the web dashboard.
+
+    Works in two modes:
+    - Agent running: uses ChatHandler (full context, TTS, visual memory)
+    - Agent stopped: uses StandaloneChatHandler (Ollama + ChromaDB, no robot)
+    """
+    text = (body.get("message") or "").strip()
+    if not text:
+        return {"ok": False, "error": "Empty message"}
+
+    agent_handler = bridge._chat_handler
+    loop = bridge._loop
+
+    if agent_handler and loop and loop.is_running():
+        # Agent is running — route through its event loop for full context
+        future = asyncio.run_coroutine_threadsafe(
+            agent_handler.handle_message(text, channel="web", user_name="Web User"),
+            loop,
+        )
+        try:
+            response = future.result(timeout=60)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "response": response}
+
+    # Agent not running — use standalone (robot-free) handler
+    sc = bridge._standalone_chat
+    if not sc:
+        return {
+            "ok": False,
+            "error": "Nessun sistema AI disponibile. Assicurati che Ollama sia in esecuzione.",
+        }
+    try:
+        response = await sc.handle_message(text, channel="web", user_name="Web User")
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "response": response}
+
+
+@app.get("/api/camera/snapshot")
+async def camera_snapshot():
+    """Return a single JPEG snapshot from Vector's camera."""
+    handler = bridge._chat_handler
+    if not handler:
+        return {"ok": False, "error": "Agent not running"}
+    b64 = handler.get_camera_snapshot_b64()
+    if b64 is None:
+        return {"ok": False, "error": "Vector is offline or camera unavailable"}
+    return {"ok": True, "image": b64}
 
 
 # ---------------------------------------------------------------------------

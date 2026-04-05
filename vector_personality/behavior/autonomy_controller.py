@@ -19,9 +19,12 @@ Dependencies:
 """
 
 import asyncio
+import logging
 import random
 from typing import Dict, Optional, List
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 class AutonomyController:
@@ -148,10 +151,17 @@ class AutonomyController:
         - No faces seen recently (feels lonely)
         - Room unknown or under-explored
         - High courage + curiosity traits
+        - Enough time has passed since last exploration
         
         Returns:
             True if should explore
         """
+        # Time-based cooldown: don't explore more often than every 90 seconds
+        if self.last_exploration_time:
+            time_since_explore = (datetime.now() - self.last_exploration_time).total_seconds()
+            if time_since_explore < 90:
+                return False
+
         # Check if face seen recently
         time_since_face = (datetime.now() - self.last_face_seen_time).total_seconds()
         no_faces_seen = time_since_face > self.exploration_threshold_seconds
@@ -191,14 +201,18 @@ class AutonomyController:
         """
         from vector_personality.behavior.task_manager import TaskPriority, TaskState
         
-        # Add exploration task
-        await self.task_manager.add_task(
+        # Add exploration task — returns False when blocked by cooldown
+        added = await self.task_manager.add_task(
             name="autonomy_exploration",
             priority=TaskPriority.MEDIUM,
             callback=self._exploration_callback,
             task_type="exploration"
         )
         
+        if not added:
+            logger.debug("Exploration task blocked by cooldown — skipping")
+            return
+
         # Transition to EXPLORING
         await self.task_manager.transition_to(TaskState.EXPLORING)
         
@@ -376,6 +390,15 @@ class AutonomyController:
             
             logger = logging.getLogger(__name__)
             logger.info("Starting exploration behavior")
+
+            # Ensure behavior control before any SDK movement commands.
+            try:
+                fut = self.robot.conn.request_control()
+                if asyncio.isfuture(fut):
+                    await fut
+            except Exception as _ctrl_err:
+                logger.warning(f"Exploration: could not request behavior control: {_ctrl_err}")
+                return "exploration_skipped_no_control"
             
             # Exploration sequence: drive → turn → look → repeat
             for _ in range(3):  # 3 exploration moves
@@ -413,10 +436,22 @@ class AutonomyController:
                     await asyncio.sleep(0.8)
             
             logger.info("Exploration behavior completed")
+
+            # Transition back to IDLE so the idle controller and future
+            # exploration triggers can fire again.
+            from vector_personality.behavior.task_manager import TaskState
+            await self.task_manager.transition_to(TaskState.IDLE)
+
             return "exploration_completed"
             
         except Exception as e:
             logger.error(f"Exploration failed: {e}", exc_info=True)
+            # Ensure we return to IDLE even on failure so the state machine isn't stuck
+            try:
+                from vector_personality.behavior.task_manager import TaskState
+                await self.task_manager.transition_to(TaskState.IDLE)
+            except Exception:
+                pass
             return "exploration_failed"
     
     async def _learning_callback(self, topic: str):

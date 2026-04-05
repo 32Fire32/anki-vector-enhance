@@ -352,6 +352,84 @@
       .obj-list li:last-child {
         border: none;
       }
+
+      /* Chat panel */
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 140px);
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .chat-msg {
+        max-width: 75%;
+        padding: 10px 14px;
+        border-radius: 16px;
+        font-size: 0.92rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+      }
+      .chat-msg.user {
+        align-self: flex-end;
+        background: #2563eb;
+        color: #fff;
+        border-bottom-right-radius: 4px;
+      }
+      .chat-msg.bot {
+        align-self: flex-start;
+        background: #2a2a2a;
+        color: var(--text);
+        border-bottom-left-radius: 4px;
+      }
+      .chat-msg.system {
+        align-self: center;
+        background: transparent;
+        color: var(--text2);
+        font-size: 0.8rem;
+        font-style: italic;
+      }
+      .chat-input-row {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-top: 1px solid #333;
+        background: #111;
+      }
+      .chat-input-row input {
+        flex: 1;
+        padding: 10px 14px;
+        background: #1a1a1a;
+        border: 1px solid #444;
+        border-radius: 20px;
+        color: var(--text);
+        font-size: 0.95rem;
+        outline: none;
+      }
+      .chat-input-row input:focus {
+        border-color: var(--green);
+      }
+      .chat-input-row button {
+        padding: 10px 20px;
+        border-radius: 20px;
+        border: none;
+        background: var(--green);
+        color: #000;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.9rem;
+      }
+      .chat-input-row button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
     </style>
   </head>
   <body>
@@ -362,6 +440,7 @@
 
     <nav class="tabs">
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="chat">Chat</button>
       <button class="tab-btn" data-tab="monitor">Monitor</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </nav>
@@ -446,6 +525,26 @@
             id="ctrlMsg"
             style="margin-top: 10px; font-size: 0.85rem; color: var(--text2)"
           ></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== CHAT TAB ===================== -->
+    <div id="tab-chat" class="tab-content">
+      <div class="chat-container card">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg system">
+            Scrivi un messaggio per parlare con Vector 🤖
+          </div>
+        </div>
+        <div class="chat-input-row">
+          <input
+            type="text"
+            id="chatInput"
+            placeholder="Scrivi un messaggio..."
+            autocomplete="off"
+          />
+          <button id="chatSend" onclick="sendChat()">Invia</button>
         </div>
       </div>
     </div>
@@ -805,6 +904,64 @@
         setTimeout(() => {
           msg.textContent = "";
         }, 4000);
+      }
+
+      // ===================== CHAT =====================
+      const chatInput = document.getElementById("chatInput");
+      chatInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendChat();
+        }
+      });
+
+      function appendChatMsg(text, cls) {
+        const box = document.getElementById("chatMessages");
+        const div = document.createElement("div");
+        div.className = "chat-msg " + cls;
+        div.textContent = text;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      async function sendChat() {
+        const input = document.getElementById("chatInput");
+        const btn = document.getElementById("chatSend");
+        const text = input.value.trim();
+        if (!text) return;
+
+        appendChatMsg(text, "user");
+        input.value = "";
+        btn.disabled = true;
+
+        // Show typing indicator
+        const typing = document.createElement("div");
+        typing.className = "chat-msg bot";
+        typing.textContent = "...";
+        typing.id = "_typing";
+        document.getElementById("chatMessages").appendChild(typing);
+        document.getElementById("chatMessages").scrollTop =
+          document.getElementById("chatMessages").scrollHeight;
+
+        try {
+          const r = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: text }),
+          });
+          const j = await r.json();
+          typing.remove();
+          if (j.ok) {
+            appendChatMsg(j.response, "bot");
+          } else {
+            appendChatMsg(j.error || "Errore nella risposta", "system");
+          }
+        } catch (err) {
+          typing.remove();
+          appendChatMsg("Errore di connessione", "system");
+        }
+        btn.disabled = false;
+        input.focus();
       }
 
       // Load settings on page load

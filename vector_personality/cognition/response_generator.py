@@ -206,6 +206,11 @@ class ResponseGenerator:
             visual_memory = context.get('visual_memory')
             if visual_memory:
                 prompt_parts.append(f"[Oggetti che ricordo di aver visto: {visual_memory}]")
+
+            # Channel awareness (Telegram / web chat / physical)
+            channel_note = context.get('channel_note')
+            if channel_note:
+                prompt_parts.append(f"\n{channel_note}")
         
         # No extra English guidelines — the base prompt already says everything needed
         

@@ -124,6 +124,16 @@ class TextToSpeech:
             try:
                 logger.info(f"🔊 Speaking ({len(text)} chars): {text[:50]}...")
                 
+                # Re-acquire behavior control in case the main loop released it
+                # while Vector was roaming freely.  From the SDK event loop thread,
+                # request_control() returns a Future and is safe to await.
+                try:
+                    fut = self.robot.conn.request_control()
+                    if asyncio.isfuture(fut):
+                        await fut
+                except Exception as _ctrl_err:
+                    logger.debug(f"TTS: behavior control request skipped: {_ctrl_err}")
+
                 # Strip markdown formatting (asterisks, underscores, etc.) before synthesis
                 # gTTS reads these literally: "asterisco vedere asterisco" 😱
                 clean_text = text.replace('*', '').replace('_', '').replace('**', '')

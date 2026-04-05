@@ -95,6 +95,16 @@ class IdleController:
             return
         
         try:
+            # Ensure we have behavior control before any SDK calls.
+            # This is a no-op when control is already held.
+            try:
+                fut = self.robot.conn.request_control()
+                if asyncio.isfuture(fut):
+                    await fut
+            except Exception as _ctrl_err:
+                # If we can't get control, skip the idle behavior silently.
+                return
+
             # Select behavior based on weights
             behavior = random.choices(
                 list(self.behavior_weights.keys()),
@@ -130,7 +140,7 @@ class IdleController:
             angle = random.uniform(-20, 40)
             
             logger.debug(f"Moving head to {angle:.1f}°")
-            self.robot.behavior.set_head_angle(degrees(angle))
+            await asyncio.to_thread(self.robot.behavior.set_head_angle, degrees(angle))
             
             # Wait a moment
             await asyncio.sleep(random.uniform(0.5, 1.5))
@@ -175,7 +185,7 @@ class IdleController:
             angles = [0, -20, 0, 20, 0]
             
             for angle in angles:
-                self.robot.behavior.set_head_angle(degrees(angle))
+                await asyncio.to_thread(self.robot.behavior.set_head_angle, degrees(angle))
                 await asyncio.sleep(0.8)
         
         except Exception as e:
@@ -213,13 +223,12 @@ class IdleController:
             direction = "forward" if distance > 0 else "backward"
             logger.info(f"🚗 Driving {direction}: {abs(distance):.0f}mm at {speed}mm/s")
             
-            self.robot.behavior.drive_straight(
+            await asyncio.to_thread(
+                self.robot.behavior.drive_straight,
                 distance_mm(distance),
                 speed_mmps(speed),
                 should_play_anim=True
             )
-            
-            await asyncio.sleep(2.0)  # Wait for drive to complete
             logger.info(f"✅ Drive complete")
         
         except Exception as e:
@@ -236,9 +245,7 @@ class IdleController:
             direction = "left" if angle > 0 else "right"
             logger.info(f"🔄 Turning {direction}: {abs(angle):.0f}°")
             
-            self.robot.behavior.turn_in_place(degrees(angle))
-            
-            await asyncio.sleep(2.0)  # Wait for turn to complete
+            await asyncio.to_thread(self.robot.behavior.turn_in_place, degrees(angle))
             logger.info(f"✅ Turn complete")
         
         except Exception as e:

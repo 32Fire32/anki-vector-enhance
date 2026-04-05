@@ -193,6 +193,9 @@ class VectorAgent:
         self.unknown_face_id = None  # Reusable face_id for unknown users (avoids spam)
         self._speech_processing = False  # Guard: prevent concurrent _handle_user_speech calls
         
+        # Behavior-control tracking (see _ensure_behavior_control / _release_behavior_control)
+        self._last_sdk_action_time = datetime.now()
+
         # Startup tracking
         self.startup_time = None  # Set when startup completes
         self.startup_grace_period = 180.0  # 3 minutes - give Vector time to settle before curiosity kicks in
@@ -642,12 +645,58 @@ class VectorAgent:
         finally:
             await self.shutdown()
 
+    # ------------------------------------------------------------------
+    # Behavior-control helpers
+    # ------------------------------------------------------------------
+
+    # Time of the last SDK action that needed behavior control.  Initialised
+    # to startup so we don't release control before Vector is ready.
+    _last_sdk_action_time: "datetime" = None  # set properly in __init__
+
+    # How long Vector must be silent/idle before we hand control back to
+    # the firmware so his natural wandering/beeping behaviors resume.
+    IDLE_RELEASE_SECS: float = 12.0
+
+    async def _ensure_behavior_control(self) -> bool:
+        """Request behavior control if not currently held.
+
+        Safe to call when control is already held — the SDK returns the
+        already-set granted_event immediately in that case.
+        """
+        self._last_sdk_action_time = datetime.now()
+        try:
+            fut = self.robot.conn.request_control()
+            if asyncio.isfuture(fut):
+                await fut
+            return True
+        except Exception as e:
+            logger.warning(f"⚠️ Could not acquire behavior control: {e}")
+            return False
+
+    async def _release_behavior_control(self) -> None:
+        """Release behavior control so Vector's firmware runs freely.
+
+        The firmware will restore his natural idle behaviors (wandering,
+        beeping, eye animations) until the agent needs control again.
+        """
+        try:
+            if self.robot.conn._control_events.has_control:
+                logger.info("🤖 Releasing behavior control — Vector goes free")
+                fut = self.robot.conn.release_control()
+                if asyncio.isfuture(fut):
+                    await fut
+        except Exception as e:
+            logger.warning(f"⚠️ Could not release behavior control: {e}")
+
+    # ------------------------------------------------------------------
+
     async def _run_startup_greeting(self, message: str):
         """Play the startup greeting via TTS or built-in speech.
 
         This is run as a background task to avoid blocking the audio loop.
         """
         try:
+            await self._ensure_behavior_control()
             if self.tts:
                 await self.tts.speak(message)
                 logger.info("✅ Startup greeting complete")
@@ -1404,11 +1453,13 @@ class VectorAgent:
                     # Discard stale queued utterances without wiping the pre-roll ring buffer
                     if self.audio_processor:
                         self.audio_processor.discard_pending_utterances()
+                    await self._ensure_behavior_control()
                     await self.tts.speak(response)
                     # Notify scene descriptor about speech (cooldown avoids scanning own TTS)
                     if self.scene_descriptor:
                         self.scene_descriptor.mark_spoke()
                 else:
+                    await self._ensure_behavior_control()
                     self.robot.behavior.say_text(response)
             else:
                 # Debug logging to help diagnose issue
@@ -1563,6 +1614,7 @@ class VectorAgent:
                 return
             
             if await self.autonomy_controller.should_explore_environment():
+                await self._ensure_behavior_control()
                 await self.autonomy_controller.start_exploration()
             
             # Get attention target (face, object, or room)
@@ -1610,11 +1662,13 @@ class VectorAgent:
                     if self.audio_processor:
                         self.audio_processor.discard_pending_utterances()
                     logger.info("🔊 Speaking via TTS...")
+                    await self._ensure_behavior_control()
                     await self.tts.speak(question)
                     logger.info("✅ TTS completed")
                 else:
                     # Fallback to Vector's built-in TTS
                     logger.info("🔊 Speaking via built-in TTS...")
+                    await self._ensure_behavior_control()
                     self.robot.behavior.say_text(question)
                     logger.info("✅ Built-in TTS completed")
                 
@@ -1667,13 +1721,47 @@ class VectorAgent:
             return
             
         try:
-            # Check if should trigger exploration if idle too long
-            await self.task_manager.trigger_exploration_if_idle()
+            # If truly idle for long enough, release behavior control so Vector's
+            # firmware autonomous behaviors (wandering, beeping, eye-scanning) resume.
+            state = self.task_manager.current_state
+            if (state == TaskState.IDLE
+                    and not self.task_manager.task_queue
+                    and not self.conversation_active):
+                idle_secs = (datetime.now() - self._last_sdk_action_time).total_seconds()
+                if idle_secs >= self.IDLE_RELEASE_SECS:
+                    await self._release_behavior_control()
+                    return  # Nothing to do; firmware drives Vector's idle behaviors
+
+            # Safety net: if stuck in a non-IDLE state for too long with an
+            # empty queue, force-recover back to IDLE.  This prevents permanent
+            # state lock-ups (e.g., exploration callback failed silently).
+            if (state != TaskState.IDLE
+                    and not self.task_manager.task_queue
+                    and not self.conversation_active):
+                stuck_secs = (datetime.now() - self.task_manager.last_state_transition).total_seconds()
+                if stuck_secs > 120:  # 2 minutes
+                    logger.warning(f"🔄 State-recovery: stuck in {state.value} for {stuck_secs:.0f}s with empty queue — resetting to IDLE")
+                    self.task_manager.current_state = TaskState.IDLE
+                    self.task_manager.last_state_transition = datetime.now()
+
+            # Something to do — ensure we have behavior control before any SDK calls
+            await self._ensure_behavior_control()
+
+            # Check if should trigger exploration if idle too long.
+            # Use the autonomy controller directly (it does the actual driving
+            # + transitions state back to IDLE when done).
+            if (self.autonomy_controller
+                    and await self.task_manager.check_idle_timeout()):
+                logger.info("⏰ Idle timeout reached — triggering auto-exploration")
+                # Reset the activity timer so we don't re-trigger every 0.5s
+                self.task_manager.last_activity_time = datetime.now()
+                await self._ensure_behavior_control()
+                await self.autonomy_controller.start_exploration()
             
             # Execute next task if available
             result = await self.task_manager.execute_next_task()
             if result:
-                logger.debug(f"Task executed: {result}")
+                logger.info(f"📋 Task executed: {result}")
                 # Reset idle timer when task completes
                 if self.idle_controller:
                     self.idle_controller.reset()
@@ -1683,7 +1771,12 @@ class VectorAgent:
                     if self.task_manager.current_state == TaskState.IDLE:
                         await self.idle_controller.execute_idle_behavior()
                     else:
-                        logger.debug(f"Skipping idle behavior - state is {self.task_manager.current_state.value}, not IDLE")
+                        # Throttle this log — only emit once every 30 seconds
+                        now_ts = datetime.now()
+                        last = getattr(self, '_last_skip_idle_log', None)
+                        if last is None or (now_ts - last).total_seconds() >= 30:
+                            self._last_skip_idle_log = now_ts
+                            logger.info(f"⏸️ Skipping idle behavior - state is {self.task_manager.current_state.value}, not IDLE")
         
         except Exception as e:
             logger.error(f"Error executing tasks: {e}", exc_info=True)
@@ -1947,14 +2040,16 @@ async def main():
         robot_kwargs = {
             'enable_face_detection': True,
             'enable_audio_feed': True,  # Enable microphone streaming from Vector
+            # Don't request behavior control at connect time.  The agent will
+            # request it on-demand (before TTS / animations / drives) and release
+            # it when idle so Vector's firmware autonomous behaviors (wandering,
+            # beeping, eye-scanning) run naturally between agent interactions.
+            'behavior_control_level': None,
         }
         if vector_ip:
             robot_kwargs['ip'] = vector_ip
             logger.info(f"Using explicit Vector IP from env: {vector_ip}")
 
-        # Don't specify behavior_control_level to allow Vector's natural idle behaviors
-        # (movements, beeps, eye animations) while still allowing SDK control when needed.
-        # Vector will automatically pause his idle behavior when we give commands.
         robot = anki_vector.Robot(**robot_kwargs)
         logger.info("Establishing connection (this may take a moment)...")
 
