@@ -18,6 +18,7 @@ import asyncio
 import concurrent.futures
 import logging
 import math
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -91,11 +92,24 @@ class LocalWhisperRecognizer:
             max_workers=1, thread_name_prefix="whisper"
         )
 
+        # Eagerly load model in background so it's ready when user first speaks.
+        self._model_ready = threading.Event()
+        self._executor.submit(self._preload_model)
+
         logger.info(
             f"LocalWhisperRecognizer ready: model={model_size} "
             f"device={self.device} compute={self.compute_type} "
             f"language={language or 'auto'}"
         )
+
+    def _preload_model(self):
+        """Eagerly load the model in the background executor thread."""
+        try:
+            self._load_model()
+        except Exception as e:
+            logger.error(f"[Whisper] Background model preload failed: {e}")
+        finally:
+            self._model_ready.set()
 
     def _load_model(self):
         """Lazy-load the Whisper model (first call only)."""
@@ -132,6 +146,11 @@ class LocalWhisperRecognizer:
 
     def _transcribe_sync(self, audio_path: str, prompt: Optional[str]) -> Dict[str, Any]:
         """Blocking transcription — run via executor to keep async loop free."""
+        # If the model is still loading in the background, don't block — skip this utterance.
+        if not self._model_ready.is_set():
+            logger.info("[Whisper] Model still loading — skipping utterance (will be ready soon)")
+            return {"text": "", "confidence": 0.0, "language": self.language or "", "duration_seconds": 0.0}
+
         self.total_calls += 1
         t0 = time.time()
 

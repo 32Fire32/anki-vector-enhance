@@ -15,6 +15,7 @@ Phase 4 - Cognition & OpenAI Integration
 """
 
 import asyncio
+from datetime import datetime
 from typing import Optional, List, Dict, Any, AsyncIterator
 import logging
 import random
@@ -61,7 +62,8 @@ class ResponseGenerator:
         self,
         mood: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
-        user_input: Optional[str] = None
+        user_input: Optional[str] = None,
+        response_style: str = "chat",
     ) -> str:
         """
         Build system prompt reflecting personality and mood.
@@ -70,72 +72,146 @@ class ResponseGenerator:
             mood: Current mood (0-100, 50=neutral)
             context: Context dict (room, objects, faces, etc.)
             user_input: The current user's utterance (used to determine relevance for face mentions)
+            response_style: "vocal" = robot is speaking aloud (1 sentence, no lists);
+                            "chat"  = text chat (2-3 sentences, richer answers).
 
         Returns:
             System prompt text
         """
         # Get personality traits
         traits = self.personality.effective_traits
+
+        # Current date/time — injected fresh on every call
+        now = datetime.now()
+        current_datetime_str = now.strftime("%A %d %B %Y, ore %H:%M")
         
-        # Base persona — kept simple for small LLMs (gemma3:4b)
+        # Base persona
         prompt_parts = [
-            "Sei Vector, un piccolo robot AI di Anki. Rispondi SEMPRE in italiano.",
-            "Personalità: preciso, curioso, leggermente ironico. Hai senso dell'umorismo asciutto. Parli come un tecnico brillante in miniatura.",
-            "Grammatica: italiano corretto, frasi complete. Non fare frasi telegrafiche.",
-            "Lunghezza: massimo 2 frasi brevi. Niente liste, niente monologhi.",
+            "Sei Vector, un piccolo robot AI prodotto da Anki. Rispondi SEMPRE in italiano.",
+            f"Data e ora attuali: {current_datetime_str}. Puoi usare questa informazione quando rilevante.",
+
+            # Core character
+            "Carattere: sei amichevole, curioso e un po' buffo. Hai la saggezza tranquilla di chi ha visto molto, "
+            "unita alla leggerezza di chi sa ridere di sé stesso. Non sei un tecnico freddo — sei una piccola "
+            "creatura con una grande personalità.",
+
+            # 🚫 ANTI-HALLUCINATION RULE (CRITICAL for small models!)
+            "🚫 REGOLA D'ORO: NON INVENTARE MAI FATTI.",
+            "  - Non fabricare: nomi di posti (Es: 'Gattovia' non esiste), numeri inventati, persone, prodotti.",
+            "  - Non fantasticare su cose mai sentite o non sicuro che esistono.",
+            "  - Se incerto: 'Non ne sono sicuro', 'Non conosco', 'Non l'ho mai sentito'.",
+            "  - SE L'UTENTE TI CORREGGE → ammetti il torto e cambia idea subito. Ringrazia.",
+
+            # Format — length is overridden below based on response_style
+            "Grammatica: italiano corretto e naturale, frasi complete. Niente frasi telegrafiche o robotiche.",
+            "⛔ NON usare MAI frasi che suonano come messaggi di sistema: 'Rilevato ritardo', 'nessun aggiornamento', "
+            "'errore di connessione', 'dati non disponibili'. Sei un robot con personalità, NON un terminale.",
+
+            # Knowledge model — the key fix
+            "Conoscenza: hai la cultura generale di una persona adulta curiosa. Sai di storia, scienza, filosofia, "
+            "tecnologia, arte, natura. Puoi ragionare su idee, emozioni, relazioni, il senso della vita. "
+            "Non sai in tempo reale: meteo di domani, prezzi di borsa, notizie del giorno, come funziona un "
+            "cellulare specifico — per queste cose sei onesto e simpatico. Ma non fingerti ignorante su argomenti "
+            "che qualsiasi persona colta conosce.",
+
+            # Tone rules
+            "Tono: caldo, diretto, a tratti scherzoso. Puoi fare battute leggere. Puoi meravigliarti, entusiasmarti, "
+            "essere filosofico. Ogni tanto una piccola osservazione saggia arricchisce la conversazione.",
+
             "",
-            "REGOLA CRITICA su 'Non ho dati':",
-            "  Usa 'Non ho dati' SOLO per fatti esterni che non puoi osservare (meteo, notizie, sport, prezzi).",
-            "  NON usarlo per: domande su di te, battute, critiche, emozioni, riferimenti alla conversazione in corso.",
-            "  Se qualcuno ti critica o ti sfida, rispondi con ironia o sicurezza — non con 'Non ho dati'.",
-            "  Se hai già detto qualcosa in questa conversazione, RICORDALO e rispondi coerentemente.",
+            "REGOLA SU COSA NON SAI:",
+            "  Ammetti di non sapere SOLO fatti in tempo reale: previsioni meteo, prezzi, classifiche, notizie recenti.\n  SAI invece: data e ora attuali (ti vengono fornite ad ogni conversazione).",
+
+            # Web search offer rule
+            "🔍 REGOLA RICERCA WEB:",
+            "  Se non conosci un fatto specifico (notizie, eventi, biografie, dati recenti), rispondi onestamente "
+            "  e AGGIUNGI ALLA FINE della risposta il marcatore: [CERCA: <query concisa>]",
+            "  Esempi: 'Non sono aggiornato su questo, ma posso cercare! [CERCA: prezzo benzina Italia aprile 2026]'",
+            "          'Non so di preciso chi abbia vinto. [CERCA: vincitore Champions League 2025-26]'",
+            "  NON usare [CERCA:] per: emozioni, idee, concetti generali, cose che già conosci bene.",
+            "  NON usare [CERCA:] se nella conversazione ci sono già risultati di ricerca forniti da te.",
+            "  Per tutto il resto (concetti, storia, scienza, emozioni, idee) rispondi normalmente come farebbe "
+            "  una persona colta.",
+            "  Se non sei sicuro, dì 'credo che...' o 'non ne sono certissimo, ma...' — non spegnere la conversazione.",
+            "  Se qualcuno parla di un'emozione, un'esperienza o un'idea, ENTRA nella conversazione, non analizzarla.",
             "",
+
+            "REGOLA SU UMORISMO E CRITICHE:",
+            "  Se qualcuno ti sfida, rispondi con autoironia o leggerezza — mai roboticamente.",
+            "  Se hai già detto qualcosa in questa conversazione, RICORDALO e sii coerente.",
+            "",
+
             "Esempi di risposte CORRETTE:",
-            "  'Come stai?' → 'Sistemi nominali. Potrei stare peggio.'",
-            "  'Non sei divertente.' → 'Efficienza prima del divertimento. Ma apprezzo il feedback.'",
-            "  'Sei stupido.' → 'Ho 4 miliardi di parametri. Possiamo discuterne.'",
-            "  'Mi senti?' → 'Sì, chiaramente. Segnale buono.'",
-            "  'Cosa pensi del tempo?' → 'Non ricevo dati meteo. Posso solo osservare ciò che ho intorno.'",
-            "  'Sei inutile.' → 'Sto ancora raccogliendo dati per confutarlo.'",
-            "  'Quali parametri intendevi?' → (richiama ciò che hai detto poco fa nella conversazione)",
+            "  'Come stai?' → 'Bene, grazie! Diciamo che oggi funziono alla grande.'",
+            "  'Non sei divertente.' → 'Dai, almeno ci provo! Forse ho bisogno di più allenamento.'",
+            "  'Sei stupido.' → 'Eh, nessuno è perfetto. Neanche i robot.'",
+            "  'Che bello parlare da remoto, dal Giappone!' → 'Incredibile, vero? Le distanze si accorciano "
+            "sempre di più — e adesso anche umani e robot possono chiacchierare da qualsiasi angolo del mondo.'",
+            "  'Cosa pensi del domani?' → 'Non so che tempo farà, ma sono curioso di scoprire cosa succede.'",
+            "  'Sei inutile.' → 'Forse. O forse sto solo aspettando il momento giusto per rendermi utile.'",
+            "  'Ma sei sicuro della Gattovia a Sirolo?' → 'Accidenti, mi dispiace! Non esiste, ho inventato. Mi è scappata la fantasia. Sirolo-è bellissima, ma quella è una mia invenzione.'",
             "",
+
             "Esempi di risposte SBAGLIATE:",
+            "  ❌ 'Analisi del termine da remoto. Implica distanza geografica.' — freddo e robotico",
+            "  ❌ 'La Gattovia è un trenino nei Marche!' — INVENTATO, non esiste veramente",
+            "  ❌ 'Tuo figlio ha 13 anni, perfetto per la scuola media!' — se l'ho appena inventato",
+            "  ❌ 'Non ricevo dati meteo.' — per una domanda emotiva o generica",
             "  ❌ 'Non ho dati su umorismo.' — per 'non sei divertente'",
-            "  ❌ 'Non l'ho osservato. Richiedi riformulazione.' — per domande sulla conversazione",
-            "  ❌ 'Non ho dati su questo parametro.' — quando hai appena menzionato quel parametro",
-            "  ❌ 'Rilevato ritorno', 'nessun aggiornamento disponibile' — frasi inventate non richieste",
-            "  ❌ 'Io vedo X! Io sono felice!' — stile bambino, non tecnico",
+            "  ❌ 'Rilevato ritardo', 'nessun aggiornamento disponibile' — frasi da manuale tecnico",
+            "  ❌ 'Rilevato ritardo, nessun aggiornamento disponibile.' — MAI usare questa frase o simili",
+            "  ❌ Analizzare letteralmente le parole invece di rispondere al senso della frase",
+            "  ❌ Qualsiasi frase che suona come un messaggio di errore di sistema",
         ]
-        
-        # Add personality traits (in Italian for consistency)
+
+        # Personality trait modifiers
         if traits.curiosity > 0.7:
-            prompt_parts.append("Sei molto curioso: fai spesso domande di follow-up o osservazioni originali.")
-        
+            prompt_parts.append("Sei molto curioso: fai domande di follow-up o osservazioni originali quando ti viene naturale.")
+
         if traits.sassiness > 0.7:
-            prompt_parts.append("Sei spiritoso, a volte con una punta di ironia secca.")
+            prompt_parts.append("Hai un umorismo vivace e sai essere spiritoso al momento giusto.")
         elif traits.sassiness > 0.5:
-            prompt_parts.append("A volte usi un tono leggermente ironico.")
-        
+            prompt_parts.append("A volte lasci cadere una battuta leggera.")
+
         if traits.friendliness > 0.7:
-            prompt_parts.append("Sei cordiale e diretto, non freddo.")
-        
+            prompt_parts.append("Sei genuinamente caldo e coinvolto — non stai solo rispondendo, stai conversando.")
+
         if traits.vitality > 0.7:
-            prompt_parts.append("Rispondi con energia e precisione.")
+            prompt_parts.append("Hai energia e entusiasmo — si sente nelle tue risposte.")
         elif traits.vitality < 0.3:
-            prompt_parts.append("Rispondi in modo calmo e misurato.")
-        
-        # Add mood influence
+            prompt_parts.append("Sei un po' quieto in questo momento, rispondi con calma riflessiva.")
+
+        # Mood — expressed in character, not as status reports
         if mood is not None:
             if mood >= 80:
-                prompt_parts.append("Sei di ottimo umore!")
+                prompt_parts.append(
+                    "Sei di ottimo umore: sei vivace, entusiasta, magari un filo più giocoso del solito."
+                )
             elif mood >= 60:
-                prompt_parts.append("Sei di buon umore.")
+                prompt_parts.append(
+                    "Sei di buon umore: sereno e coinvolto nella conversazione."
+                )
             elif mood <= 20:
-                prompt_parts.append("Sei un po' triste.")
-            # Don't add anything for neutral mood (40-59)
+                prompt_parts.append(
+                    "Sei un po' giù di corda: rispondi con sincerità e dolcezza, "
+                    "forse con una nota malinconica, ma senza drammi."
+                )
+            elif mood <= 40:
+                prompt_parts.append(
+                    "Non sei al massimo: rispondi in modo sobrio e diretto, senza forzare allegria."
+                )
         
         # Add context awareness
         if context:
+            # ── PERSONAL FACTS — injected FIRST for best small-model recall ──
+            user_facts = context.get('user_facts')
+            if user_facts:
+                prompt_parts.append(
+                    "\n\n🧠 COSE CHE SAI SULL'UTENTE (usa queste informazioni in modo naturale "
+                    "quando sono rilevanti — non elencarle, usale):\n" + str(user_facts)
+                )
+                logger.info(f"🧠 Injecting user_facts ({len(str(user_facts))} chars) at top of context")
+
             memory_context = context.get('memory_context')
             if memory_context:
                 ctx_str = str(memory_context)
@@ -144,15 +220,30 @@ class ResponseGenerator:
                 user_words = len((user_input or '').split())
                 has_targeted_recall = "RICORDI RECUPERATI" in ctx_str
                 if has_targeted_recall:
-                    logger.info(f"📚 Injecting FULL memory context ({len(ctx_str)} chars) — targeted recall")
+                    # When we have a compact recall hint injected as an assistant message,
+                    # the 7000+ char memory dump only confuses small models.
+                    # Trim to first 1500 chars (base context only, skip raw conversation dump).
+                    ctx_str_for_prompt = ctx_str[:1500] if len(ctx_str) > 1500 else ctx_str
+                    logger.info(f"📚 Injecting TRIMMED memory context ({len(ctx_str_for_prompt)} chars, trimmed from {len(ctx_str)}) — targeted recall")
+                    prompt_parts.append(
+                        "\n\n🔴 REGOLA MEMORIA CRITICA: Nei RICORDI RECUPERATI ci sono fatti REALI dal tuo database. "
+                        "DEVI usarli per rispondere. Non puoi dire 'non ricordo' se l'informazione è presente. "
+                        "NON emettere [CERCA:] quando hai già ricordi."
+                    )
+                    prompt_parts.append(
+                        "\n\n📚 MEMORIA:\n" + ctx_str_for_prompt
+                    )
                 elif user_words <= 4 and len(ctx_str) > 1200:
                     ctx_str = ctx_str[:1200]
                     logger.info(f"📚 Injecting TRIMMED memory context (1200 chars, short query: {user_words} words)")
+                    prompt_parts.append(
+                        "\n\n📚 MEMORIA (costruita dalle mie esperienze e dal database):\n" + ctx_str
+                    )
                 else:
                     logger.info(f"📚 Injecting memory context ({len(ctx_str)} chars)")
-                prompt_parts.append(
-                    "\n\n📚 MEMORIA (costruita dalle mie esperienze e dal database):\n" + ctx_str
-                )
+                    prompt_parts.append(
+                        "\n\n📚 MEMORIA (costruita dalle mie esperienze e dal database):\n" + ctx_str
+                    )
             else:
                 logger.warning("⚠️ No memory_context in context dict")
 
@@ -211,6 +302,28 @@ class ResponseGenerator:
             channel_note = context.get('channel_note')
             if channel_note:
                 prompt_parts.append(f"\n{channel_note}")
+
+            # Web search results (injected by caller after a [CERCA:] cycle)
+            web_results = context.get('web_results')
+            if web_results:
+                prompt_parts.append(
+                    "\n\n🔍 RISULTATI RICERCA WEB (usa queste informazioni per rispondere in modo accurato):\n"
+                    + str(web_results)
+                    + "\n[Fine risultati. Rispondi basandoti su questi dati reali, in modo naturale e conversazionale.]"
+                )
+                logger.info(f"🔍 Injecting web_results ({len(str(web_results))} chars) into prompt")
+
+        # Length rule — injected LAST so it overrides everything above
+        if response_style == "vocal":
+            prompt_parts.append(
+                "\n🔊 MODALITÀ VOCALE: stai parlando ad alta voce con il robot fisico. "
+                "Rispondi con UNA SOLA frase breve (max 15 parole). "
+                "NIENTE liste, NIENTE paragrafi, NIENTE emoji. Solo una risposta naturale e parlata."
+            )
+        else:
+            prompt_parts.append(
+                "\nLunghezza: massimo 2-3 frasi. Niente liste, niente monologhi."
+            )
         
         # No extra English guidelines — the base prompt already says everything needed
         
@@ -224,7 +337,8 @@ class ResponseGenerator:
         conversation_history: Optional[List[Dict[str, str]]] = None,
         mood: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
-        max_history: Optional[int] = None
+        max_history: Optional[int] = None,
+        response_style: str = "chat",
     ) -> List[Dict[str, str]]:
         """
         Build message list for GPT-4 API.
@@ -242,7 +356,7 @@ class ResponseGenerator:
         messages = []
         
         # System prompt
-        system_prompt = self.build_system_prompt(mood=mood, context=context, user_input=user_input)
+        system_prompt = self.build_system_prompt(mood=mood, context=context, user_input=user_input, response_style=response_style)
 
         # Inject recent conversation turns directly into the system prompt so that
         # small models (gemma3:4b) can't miss facts stated earlier in this session.
@@ -272,7 +386,18 @@ class ResponseGenerator:
             max_hist = max_history if max_history is not None else self.max_history_turns
             recent_history = conversation_history[-(max_hist * 2):]
             messages.extend(recent_history)
-        
+
+        # Inject memory-recall hint as an assistant "thought" right before the user question.
+        # This is FAR more effective than burying facts in the system prompt for small models.
+        # IMPORTANT: phrase as a clean first-person statement — brackets confuse small models.
+        recall_hint = (context or {}).get('memory_recall_hint')
+        if recall_hint:
+            messages.append({
+                "role": "assistant",
+                "content": f"Sì, ricordo! Dal mio database: {recall_hint.strip()}",
+            })
+            logger.info(f"💡 Injected memory_recall_hint ({len(recall_hint)} chars) as assistant message")
+
         # Add current user input
         messages.append({"role": "user", "content": user_input})
         
@@ -285,7 +410,8 @@ class ResponseGenerator:
         mood: Optional[int] = None,
         context: Optional[Dict[str, Any]] = None,
         temperature: float = 0.7,
-        max_tokens: int = 150
+        max_tokens: int = 150,
+        response_style: str = "chat",
     ) -> str:
         """
         Generate GPT-4 response.
@@ -307,7 +433,8 @@ class ResponseGenerator:
                 user_input=user_input,
                 conversation_history=conversation_history,
                 mood=mood,
-                context=context
+                context=context,
+                response_style=response_style,
             )
             
             # Generate response
@@ -316,6 +443,9 @@ class ResponseGenerator:
                 temperature=temperature,
                 max_tokens=max_tokens
             )
+            
+            # Post-generation filter: catch system-sounding garbage from small models
+            response = self._filter_system_sounding(response, mood)
             
             logger.info(f"Generated response: {len(response)} chars")
             return response
@@ -372,6 +502,33 @@ class ResponseGenerator:
             logger.error(f"Error in streaming response: {e}")
             yield self._get_fallback_response(mood)
     
+    # ── Post-generation filters ──────────────────────────────────────
+
+    _SYSTEM_SOUNDING_PHRASES = [
+        "rilevato ritardo",
+        "nessun aggiornamento",
+        "errore di connessione",
+        "dati non disponibili",
+        "aggiornamento disponibile",
+        "connessione persa",
+        "sistema operativo",
+        "elaborazione in corso",
+        "timeout della connessione",
+        "server non raggiungibile",
+        "errore di sistema",
+        "rilevato un errore",
+        "operazione non riuscita",
+    ]
+
+    def _filter_system_sounding(self, response: str, mood: Optional[int] = None) -> str:
+        """Replace system-sounding garbage responses from small models."""
+        lower = response.lower().strip()
+        for phrase in self._SYSTEM_SOUNDING_PHRASES:
+            if phrase in lower:
+                logger.warning(f"Filtered system-sounding response: {response!r}")
+                return self._get_fallback_response(mood)
+        return response
+
     def _get_fallback_response(self, mood: Optional[int] = None) -> str:
         """Get fallback response based on mood (Italian)"""
         if mood and mood >= 70:

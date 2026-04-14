@@ -18,6 +18,7 @@ Performance Target: <3s for typical sentence
 import logging
 import asyncio
 import concurrent.futures
+import shutil
 from typing import Optional, Any
 from pathlib import Path
 from datetime import datetime
@@ -81,7 +82,17 @@ class TextToSpeech:
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=2, thread_name_prefix="tts"
         )
+
+        # Serialize concurrent TTS calls: if Vector is already speaking, the next
+        # call waits rather than failing with "Cannot start audio when another
+        # sound is playing" and falling back to the English built-in say_text.
+        self._speak_lock = asyncio.Lock()
         
+        # Detect ffmpeg once at startup — pydub needs it to decode MP3
+        self._ffmpeg_available = shutil.which("ffmpeg") is not None
+        if not self._ffmpeg_available:
+            logger.warning("⚠️ ffmpeg not found — audio conversion skipped, TTS will use say_text directly")
+
         logger.info(f"TextToSpeech initialized: gTTS (FREE), language={self.language}, speed={self.speed}")
         if self.monotone:
             logger.info("TextToSpeech robotic filter enabled")
@@ -108,7 +119,18 @@ class TextToSpeech:
         if not text or not text.strip():
             logger.warning("Empty text provided to speak()")
             return False
-        
+
+        async with self._speak_lock:
+            return await self._speak_locked(text, voice, speed, max_retries)
+
+    async def _speak_locked(
+        self,
+        text: str,
+        voice: Optional[str] = None,
+        speed: Optional[float] = None,
+        max_retries: int = 3,
+    ) -> bool:
+        """Internal speak implementation — called only while _speak_lock is held."""
         text = text.strip()
         # gTTS doesn't use voice parameter, always uses configured language
         speed = speed or self.speed
@@ -157,36 +179,47 @@ class TextToSpeech:
                 logger.info(f"Audio saved: {audio_path}")
 
                 # 2. Convert + apply robotic filter (pydub + numpy, ~200-400ms)
-                converted_path = await loop.run_in_executor(
-                    self._executor, self._convert_audio_for_vector, audio_path
-                )
-                if converted_path:
-                    play_path = converted_path
+                #    Skip entirely when ffmpeg is missing — pydub cannot decode MP3 without it.
+                if self._ffmpeg_available:
+                    converted_path = await loop.run_in_executor(
+                        self._executor, self._convert_audio_for_vector, audio_path
+                    )
+                    play_path = converted_path if converted_path else audio_path
                 else:
-                    play_path = audio_path
+                    converted_path = None
+                    play_path = None  # signal: use say_text directly
 
                 # Play through Vector's speakers
                 # Mute microphone before TTS playback to prevent feedback loop
                 if self.audio_processor:
                     self.audio_processor.mute()
 
-                try:
-                    # 3. Stream WAV to Vector (blocking SDK call — keep in executor
-                    #    so the event loop isn't stalled during playback)
-                    await loop.run_in_executor(
-                        self._executor, self.robot.audio.stream_wav_file, str(play_path), 100
-                    )
-                    logger.info("✅ Audio played successfully via stream_wav_file")
-                except Exception as e:
-                    logger.warning(f"stream_wav_file failed: {e}, falling back to say_text")
+                if play_path is not None:
+                    try:
+                        # 3. Stream WAV to Vector (blocking SDK call — keep in executor
+                        #    so the event loop isn't stalled during playback)
+                        await loop.run_in_executor(
+                            self._executor, self.robot.audio.stream_wav_file, str(play_path), 100
+                        )
+                        logger.info("✅ Audio played successfully via stream_wav_file")
+                    except Exception as e:
+                        logger.warning(f"stream_wav_file failed: {e}, falling back to say_text")
+                        try:
+                            await loop.run_in_executor(
+                                self._executor, self.robot.behavior.say_text, text
+                            )
+                            logger.info("✅ Audio played successfully via say_text fallback")
+                        except Exception as e2:
+                            logger.error(f"All TTS methods failed: {e2}")
+                else:
+                    # No ffmpeg: skip WAV streaming, use say_text directly
                     try:
                         await loop.run_in_executor(
                             self._executor, self.robot.behavior.say_text, text
                         )
-                        logger.info("✅ Audio played successfully via say_text fallback")
+                        logger.info("✅ Audio played via say_text (ffmpeg not available)")
                     except Exception as e2:
-                        logger.error(f"All TTS methods failed: {e2}")
-                        # Don't return False here, we still generated the audio successfully API-wise
+                        logger.error(f"say_text failed: {e2}")
                 
                 # Short pause so the physical speaker tail clears before unmuting.
                 # 0.5s is enough for the BT headset's echo canceller to settle.

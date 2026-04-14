@@ -46,12 +46,33 @@ class VectorTelegramBot:
     Accepts the AgentBridge object and routes messages dynamically:
     - Agent running  → ChatHandler (full context, TTS, visual memory)
     - Agent stopped  → StandaloneChatHandler (Ollama + ChromaDB only)
+    
+    Access control: Only whitelisted Telegram user IDs can use the bot.
+    Set TELEGRAM_ALLOWED_USER_IDS in api.env (comma-separated list of user IDs).
     """
 
     def __init__(self, token: str, bridge):
         self.token = token
         self.bridge = bridge
         self._app: Optional[Application] = None
+        
+        # Load whitelist from environment
+        allowed_str = os.getenv("TELEGRAM_ALLOWED_USER_IDS", "").strip()
+        self._allowed_user_ids = set()
+        if allowed_str:
+            try:
+                self._allowed_user_ids = set(int(uid.strip()) for uid in allowed_str.split(",") if uid.strip())
+                logger.info(f"✅ Telegram whitelist: {len(self._allowed_user_ids)} user(s) allowed")
+            except ValueError as e:
+                logger.warning(f"⚠️ Invalid TELEGRAM_ALLOWED_USER_IDS: {e}")
+    
+    def _is_user_allowed(self, user_id: int) -> bool:
+        """Check if user is whitelisted."""
+        if not self._allowed_user_ids:
+            # No whitelist configured — allow all (backward compatibility)
+            logger.warning("⚠️ TELEGRAM_ALLOWED_USER_IDS not set — bot is PUBLIC!")
+            return True
+        return user_id in self._allowed_user_ids
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -75,7 +96,7 @@ class VectorTelegramBot:
 
         await self._app.initialize()
         await self._app.start()
-        await self._app.updater.start_polling(drop_pending_updates=True)
+        await self._app.updater.start_polling(drop_pending_updates=True, timeout=5)
         logger.info("Telegram bot started — polling for messages")
 
     async def stop(self) -> None:
@@ -164,6 +185,12 @@ class VectorTelegramBot:
     async def _cmd_photo(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
+        user_id = update.effective_user.id
+        if not self._is_user_allowed(user_id):
+            logger.warning(f"🚫 Unauthorized /photo attempt from user {user_id}")
+            await update.message.reply_text("Non sei autorizzato a usare questo bot.")
+            return
+        
         ch = self.bridge._chat_handler
         b64 = ch.get_camera_snapshot_b64() if ch else None
         if b64 is None:
@@ -191,17 +218,58 @@ class VectorTelegramBot:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ) -> None:
         user = update.effective_user
+        user_id = user.id
+        
+        # Check if user is allowed
+        if not self._is_user_allowed(user_id):
+            logger.warning(f"🚫 Unauthorized message from user {user_id}: {update.message.text!r}")
+            await update.message.reply_text("Non sei autorizzato a usare questo bot.")
+            return
+        
         text = update.message.text or ""
-        user_id = str(user.id)
         user_name = user.first_name or None
+
+        # Resolve Telegram user ID to canonical ID via UserRegistry (if available)
+        resolved_user_id = str(user_id)
+        try:
+            bridge = self.bridge
+            agent = getattr(getattr(bridge, "_chat_handler", None), "agent", None)
+            registry = getattr(agent, "user_registry", None)
+            if registry is None:
+                sc = getattr(bridge, "_standalone_chat", None)
+                registry = getattr(sc, "_user_registry", None)
+            if registry:
+                resolved_user_id = registry.resolve(str(user_id))
+        except Exception:
+            pass
 
         # Show typing indicator while generating response
         await update.message.chat.send_action("typing")
 
+        # Check if the user is confirming a pending web-search offer.
+        # If so, send an immediate acknowledgement, then the actual result.
+        import re as _re
+        _yes_pat = _re.compile(
+            r'^\s*(s[ì i]|certo|ok|vai|cerca|esatto|perfetto|yes|sure|dai|fallo|per favore|'
+            r'assolutamente|ovviamente|volentieri|yep|yup)\b',
+            _re.IGNORECASE,
+        )
+        chat_handler = self.bridge._chat_handler
+        sc = getattr(self.bridge, "_standalone_chat", None)
+        is_search_confirmation = _yes_pat.match(text) and (
+            (chat_handler is not None and chat_handler.has_pending_search("telegram", resolved_user_id))
+            or (sc is not None and sc.has_pending_search("telegram", resolved_user_id))
+        )
+
+        if is_search_confirmation:
+            # Send an immediate "searching..." message so the user isn't left in silence
+            await update.message.reply_text("🔍 Sto cercando, un momento...")
+            await update.message.chat.send_action("typing")
+
         response = await self._resolve_message(
             text,
             channel="telegram",
-            user_id=user_id,
+            user_id=resolved_user_id,
             user_name=user_name,
         )
         await update.message.reply_text(response)

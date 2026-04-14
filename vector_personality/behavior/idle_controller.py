@@ -153,14 +153,14 @@ class IdleController:
         try:
             # Idle animation triggers (subtle, non-disruptive)
             idle_animations = [
-                "anim_eyepose_happy",
-                "anim_eyepose_sad",
-                "anim_eyepose_surprised",
-                "anim_eyepose_worried",
-                "anim_eyepose_suspicious",
-                "anim_eyepose_curious",
-                "anim_eyepose_sleepy",
-                "anim_eyepose_grumpy"
+                "NothingToDoBoredIdle",
+                "ObservingIdleEyesOnly",
+                "ObservingIdleWithHeadLookingStraight",
+                "ObservingIdleWithHeadLookingUp",
+                "BlackJack_Idle",
+                "EyeContactLookLoop",
+                "InteractWithFaceTrackingIdle",
+                "CubePounceIdleLiftDown",
             ]
             
             animation = random.choice(idle_animations)
@@ -198,9 +198,9 @@ class IdleController:
             
             # Use eye pose animation for subtle eye movement
             eye_animations = [
-                "anim_eyepose_happy",
-                "anim_eyepose_curious",
-                "anim_eyepose_suspicious"
+                "ObservingIdleEyesOnly",
+                "EyeContactLookLoop",
+                "ObservingLookStraight",
             ]
             
             animation = random.choice(eye_animations)

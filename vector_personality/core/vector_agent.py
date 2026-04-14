@@ -192,9 +192,11 @@ class VectorAgent:
         self.conversation_history = []  # Short-term buffer: [{"role": "user"|"assistant", "content": ...}]
         self.unknown_face_id = None  # Reusable face_id for unknown users (avoids spam)
         self._speech_processing = False  # Guard: prevent concurrent _handle_user_speech calls
+        self._pending_search_query: Optional[str] = None  # Queued web-search from vocal [CERCA:]
         
         # Behavior-control tracking (see _ensure_behavior_control / _release_behavior_control)
         self._last_sdk_action_time = datetime.now()
+        self._behavior_released = False  # True after release issued; cleared on re-acquire
 
         # Startup tracking
         self.startup_time = None  # Set when startup completes
@@ -208,6 +210,15 @@ class VectorAgent:
         self.db = ChromaDBConnector(persist_directory=chromadb_dir)
         self.personality = PersonalityModule(self.db)
         self.memory = WorkingMemory()
+
+        # User registry — unified identity across voice / web / Telegram
+        try:
+            from vector_personality.memory.user_registry import UserRegistry
+            self.user_registry = UserRegistry()
+            logger.info(f"[UserRegistry] {len(self.user_registry.get_all_users())} user(s) loaded")
+        except Exception as _ure:
+            self.user_registry = None
+            logger.warning(f"UserRegistry unavailable: {_ure}")
         
         # Get API keys for perception modules
         openai_api_key = os.environ.get('OPENAI_API_KEY')
@@ -355,6 +366,16 @@ class VectorAgent:
             self.embedding_gen = None
             self.vector_db = None
 
+        # Entity memory (structured profiles, permanent)
+        self.entity_memory = None
+        try:
+            from vector_personality.memory.entity_memory import EntityMemory
+            if self.db:
+                self.entity_memory = EntityMemory(self.db.client, self.embedding_gen)
+                logger.info("✅ EntityMemory ready")
+        except Exception as e:
+            logger.warning(f"⚠️ EntityMemory unavailable: {e}")
+
         # Context builder (T123) - now with startup summarization + semantic search (T140)
         if ContextBuilder and self.db and self.memory:
             self.context_builder = ContextBuilder(
@@ -362,7 +383,8 @@ class VectorAgent:
                 working_memory=self.memory,
                 groq_client=self.groq_client,  # NEW: Pass Groq for summarization
                 vector_db=self.vector_db,      # T140: Vector database for semantic search
-                embedding_gen=self.embedding_gen  # T140: Embedding generator
+                embedding_gen=self.embedding_gen,  # T140: Embedding generator
+                entity_memory=self.entity_memory,  # Structured entity profiles
             )
         else:
             self.context_builder = None
@@ -664,6 +686,7 @@ class VectorAgent:
         already-set granted_event immediately in that case.
         """
         self._last_sdk_action_time = datetime.now()
+        self._behavior_released = False  # we're actively operating — not in idle-release mode
         try:
             fut = self.robot.conn.request_control()
             if asyncio.isfuture(fut):
@@ -1261,6 +1284,48 @@ class VectorAgent:
         except Exception as e:
             logger.warning(f"Unexpected error in emotion animation {emotion}: {e}")
     
+    async def _execute_vocal_search(self, query: str) -> None:
+        """Perform a web search on *query* and speak the result aloud."""
+        from vector_personality.cognition.web_searcher import web_search
+        from vector_personality.cognition.response_generator import ResponseGenerator
+
+        logger.info(f"[WebSearch][vocal] Searching: {query!r}")
+        web_results = await web_search(query)
+        if not web_results:
+            web_results = "(Nessun risultato trovato.)"
+
+        llm_client = getattr(self, "llm_client", None) or getattr(self, "openai_client", None)
+        if not llm_client or not self.reasoning_engine:
+            snippet = web_results.split("\n")[-1][:120]
+            if self.tts:
+                await self.tts.speak(f"Ho trovato: {snippet}")
+            return
+
+        context: Dict[str, Any] = await self.reasoning_engine.assemble_context()
+        context["web_results"] = web_results
+
+        response_gen = ResponseGenerator(
+            openai_client=llm_client,
+            personality_module=self.personality,
+        )
+        mood = self.memory.current_mood if self.memory else 50
+        response = await response_gen.generate_response(
+            user_input=f"Cerca: {query}",
+            conversation_history=self.conversation_history[-10:],
+            context=context,
+            mood=mood,
+            response_style="vocal",
+        )
+
+        self.conversation_history.append({"role": "user", "content": f"[cerca] {query}"})
+        self.conversation_history.append({"role": "assistant", "content": response})
+        if len(self.conversation_history) > 10:
+            self.conversation_history = self.conversation_history[-10:]
+
+        logger.info(f"[WebSearch][vocal] Response: {response!r}")
+        if self.tts:
+            await self.tts.speak(response)
+
     async def handle_speech_for_wirepod(self, text: str) -> str:
         """
         Process transcribed speech from wire-pod's STT pipeline.
@@ -1285,7 +1350,12 @@ class VectorAgent:
 
             context = await self.reasoning_engine.assemble_context()
             if self.context_builder:
-                context["memory_context"] = await self.context_builder.build_conversation_context(user_text=text)
+                mem_result = await self.context_builder.build_conversation_context(user_text=text)
+                context["memory_context"] = mem_result.get("memory", "")
+                if mem_result.get("user_facts"):
+                    context["user_facts"] = mem_result["user_facts"]
+                if mem_result.get("memory_recall_hint"):
+                    context["memory_recall_hint"] = mem_result["memory_recall_hint"]
 
             response_gen = ResponseGenerator(
                 openai_client=llm_client,
@@ -1296,6 +1366,7 @@ class VectorAgent:
                 conversation_history=self.conversation_history[-10:],
                 context=context,
                 mood=self.memory.current_mood if self.memory else 50,
+                response_style="vocal",
             )
 
             # Update short-term conversation history
@@ -1320,6 +1391,18 @@ class VectorAgent:
                     )
                     if self.context_builder:
                         self.context_builder.invalidate_cache()
+
+                    # Extract and store personal facts (fire-and-forget)
+                    try:
+                        from vector_personality.memory.fact_extractor import FactExtractor
+                        if self.llm_client:
+                            stable_id = face_id or "physical_default"
+                            _extractor = FactExtractor(self.db, self.llm_client, self.entity_memory)
+                            asyncio.create_task(
+                                _extractor.extract_and_store(text, speaker_id=stable_id)
+                            )
+                    except Exception as _fe:
+                        logger.debug(f"Fact extraction skipped: {_fe}")
                 except Exception as exc:
                     logger.warning(f"[WirePodBridge] DB save failed: {exc}")
 
@@ -1355,6 +1438,20 @@ class VectorAgent:
         self._speech_processing = True
         try:
             # Note: Logging already done by caller (avoid duplicate "🎤 Heard:" messages)
+
+            # ── Web search: user is confirming a pending search offer ──────────
+            import re as _re
+            _yes_pat = _re.compile(
+                r'^\s*(s[iì]|certo|ok|vai|cerca|esatto|perfetto|yes|sure|dai|fallo|per favore|'
+                r'assolutamente|ovviamente|volentieri|yep|yup)\b',
+                _re.IGNORECASE,
+            )
+            if self._pending_search_query and _yes_pat.match(text):
+                await self._execute_vocal_search(self._pending_search_query)
+                self._pending_search_query = None
+                return
+            # Non-yes reply clears the pending offer
+            self._pending_search_query = None
             
             # Transition to PROCESSING state
             if self.task_manager:
@@ -1372,6 +1469,13 @@ class VectorAgent:
                     logger.info(f"Using unknown face_id: {self.unknown_face_id}")
                 face_id = self.unknown_face_id
 
+            # Resolve to canonical user ID via registry
+            if self.user_registry and face_id:
+                canonical = self.user_registry.resolve(face_id)
+                if canonical != face_id:
+                    logger.debug(f"[UserRegistry] voice {face_id!r} → {canonical!r}")
+                    face_id = canonical
+
             # Generate LLM response (T083 + T121 Groq)
             llm_client = self.llm_client if hasattr(self, 'llm_client') else self.openai_client
             
@@ -1387,8 +1491,12 @@ class VectorAgent:
 
                 # Build memory-grounded context string (T123)
                 if self.context_builder:
-                    memory_context = await self.context_builder.build_conversation_context(user_text=text)
-                    context['memory_context'] = memory_context
+                    mem_result = await self.context_builder.build_conversation_context(user_text=text)
+                    context['memory_context'] = mem_result.get("memory", "")
+                    if mem_result.get("user_facts"):
+                        context['user_facts'] = mem_result["user_facts"]
+                    if mem_result.get("memory_recall_hint"):
+                        context['memory_recall_hint'] = mem_result["memory_recall_hint"]
 
                 # Include announce_faces flag if startup greeting requested it (one-time)
                 try:
@@ -1419,8 +1527,21 @@ class VectorAgent:
                     user_input=text,
                     conversation_history=self.conversation_history[-10:],  # last 5 turns
                     context=context,
-                    mood=self.memory.current_mood
+                    mood=self.memory.current_mood,
+                    response_style="vocal",
                 )
+
+                # ── Parse [CERCA: query] marker ───────────────────────────────
+                import re as _re2
+                _search_marker = _re2.compile(r'\[CERCA:\s*(.+?)\]', _re2.IGNORECASE)
+                _sm = _search_marker.search(response)
+                if _sm:
+                    search_query = _sm.group(1).strip()
+                    response = _search_marker.sub("", response).strip()
+                    # Append a spoken offer
+                    response = response.rstrip(".") + ". Vuoi che cerchi?"
+                    self._pending_search_query = search_query
+                    logger.info(f"[WebSearch] Vocal pending search queued: {search_query!r}")
                 
                 # Update short-term conversation history
                 self.conversation_history.append({"role": "user", "content": text})
@@ -1485,6 +1606,17 @@ class VectorAgent:
                         embedding_gen=self.embedding_gen  # T140: Pass embedding generator
                     )
                     logger.info("💿 Conversation saved to database")
+
+                    # Extract and store personal facts (fire-and-forget, never blocks speech)
+                    try:
+                        from vector_personality.memory.fact_extractor import FactExtractor
+                        if self.llm_client:
+                            _extractor = FactExtractor(self.db, self.llm_client, self.entity_memory)
+                            asyncio.create_task(
+                                _extractor.extract_and_store(text, speaker_id=face_id or "owner")
+                            )
+                    except Exception as _fe:
+                        logger.debug(f"Fact extraction skipped: {_fe}")
 
                     # Detect if the user taught Vector about an object
                     # E.g. Vector asked "What is this black box?" → user said "It's a printer"
@@ -1729,7 +1861,9 @@ class VectorAgent:
                     and not self.conversation_active):
                 idle_secs = (datetime.now() - self._last_sdk_action_time).total_seconds()
                 if idle_secs >= self.IDLE_RELEASE_SECS:
-                    await self._release_behavior_control()
+                    if not self._behavior_released:
+                        await self._release_behavior_control()
+                        self._behavior_released = True
                     return  # Nothing to do; firmware drives Vector's idle behaviors
 
             # Safety net: if stuck in a non-IDLE state for too long with an

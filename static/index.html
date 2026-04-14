@@ -442,6 +442,9 @@
       <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="chat">Chat</button>
       <button class="tab-btn" data-tab="monitor">Monitor</button>
+      <button class="tab-btn" data-tab="users" onclick="loadUsers()">
+        Utenti
+      </button>
       <button class="tab-btn" data-tab="settings">Settings</button>
     </nav>
 
@@ -614,8 +617,14 @@
         <h3>Configuration (api.env)</h3>
         <div class="settings-grid" id="settingsGrid">
           <div class="field">
-            <label for="sLlm">LLM Model (OLLAMA_MODEL)</label>
+            <label for="sLlm">LLM Model — robot ON (OLLAMA_MODEL)</label>
             <select id="sLlm"></select>
+          </div>
+          <div class="field">
+            <label for="sStandalone"
+              >LLM Model — web / Telegram (STANDALONE_MODEL)</label
+            >
+            <select id="sStandalone"></select>
           </div>
           <div class="field">
             <label for="sVlm">VLM Model (VLM_MODEL)</label>
@@ -668,6 +677,111 @@
           Settings are applied on the next START. Change values, save, then
           restart the agent.
         </p>
+      </div>
+    </div>
+
+    <!-- ===================== USERS TAB ===================== -->
+    <div id="tab-users" class="tab-content">
+      <div class="card">
+        <h3>Gestione Utenti</h3>
+        <p style="color: #aaa; font-size: 0.9em; margin-bottom: 1rem">
+          Collega i tuoi ID Telegram, i volti riconosciuti e le sessioni web ad
+          un solo profilo unificato.
+        </p>
+
+        <div
+          id="usersError"
+          style="color: #f66; display: none; margin-bottom: 0.5rem"
+        ></div>
+
+        <!-- Users list -->
+        <div id="usersList"></div>
+
+        <button
+          class="btn btn-start btn-sm"
+          style="margin-top: 1rem"
+          onclick="showAddUser()"
+        >
+          + Aggiungi utente
+        </button>
+
+        <!-- Add / Edit form -->
+        <div
+          id="userForm"
+          style="
+            display: none;
+            margin-top: 1.5rem;
+            border-top: 1px solid #333;
+            padding-top: 1rem;
+          "
+        >
+          <h4 id="userFormTitle">Nuovo utente</h4>
+          <input type="hidden" id="ufUserId" value="" />
+          <div class="settings-grid">
+            <div class="field">
+              <label>Nome</label>
+              <input type="text" id="ufName" placeholder="Nicola" />
+            </div>
+            <div class="field">
+              <label
+                >Telegram ID(s)
+                <span style="font-size: 0.8em; color: #888"
+                  >(virgola per più valori)</span
+                ></label
+              >
+              <input type="text" id="ufTelegram" placeholder="6067320095" />
+            </div>
+            <div class="field" style="grid-column: 1/-1">
+              <label
+                >Volti riconosciuti
+                <span style="font-size: 0.8em; color: #888"
+                  >(seleziona dalla memoria di Vector)</span
+                ></label
+              >
+              <div
+                id="ufFaceList"
+                style="
+                  display: flex;
+                  flex-wrap: wrap;
+                  gap: 0.4rem;
+                  margin-top: 0.3rem;
+                "
+              ></div>
+            </div>
+            <div class="field" style="grid-column: 1/-1">
+              <label>Note</label>
+              <input
+                type="text"
+                id="ufNotes"
+                placeholder="Proprietario principale"
+              />
+            </div>
+          </div>
+          <div style="margin-top: 0.8rem; display: flex; gap: 0.5rem">
+            <button class="btn btn-start btn-sm" onclick="saveUser()">
+              Salva
+            </button>
+            <button
+              class="btn btn-sm"
+              style="background: #444"
+              onclick="cancelUserForm()"
+            >
+              Annulla
+            </button>
+            <button
+              class="btn btn-sm"
+              id="ufDeleteBtn"
+              style="background: #c0392b; display: none"
+              onclick="deleteUser()"
+            >
+              Elimina
+            </button>
+          </div>
+          <span
+            id="userFormMsg"
+            style="margin-left: 0.5rem; font-size: 0.85em"
+          ></span>
+        </div>
       </div>
     </div>
 
@@ -844,6 +958,11 @@
 
         // Populate model dropdowns
         populateSelect("sLlm", models, s.OLLAMA_MODEL || "gemma3:4b");
+        populateSelect(
+          "sStandalone",
+          models,
+          s.STANDALONE_MODEL || "gemma3:12b",
+        );
         populateSelect("sVlm", models, s.VLM_MODEL || "llava:7b");
 
         // Set other fields
@@ -879,6 +998,7 @@
       async function saveSettings() {
         const body = {
           OLLAMA_MODEL: document.getElementById("sLlm").value,
+          STANDALONE_MODEL: document.getElementById("sStandalone").value,
           VLM_MODEL: document.getElementById("sVlm").value,
           WHISPER_MODEL: document.getElementById("sWhisper").value,
           VLM_INTERVAL: document.getElementById("sVlmInt").value,
@@ -944,10 +1064,16 @@
           document.getElementById("chatMessages").scrollHeight;
 
         try {
+          // Stable user_id persists across sessions so entity_memory accumulates knowledge.
+          // Once Vector learns the name via conversation, it will auto-inject it in future sessions.
+          if (!localStorage.getItem("vector_user_id")) {
+            localStorage.setItem("vector_user_id", crypto.randomUUID());
+          }
+          const userId = localStorage.getItem("vector_user_id");
           const r = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: text }),
+            body: JSON.stringify({ message: text, user_id: userId }),
           });
           const j = await r.json();
           typing.remove();
@@ -966,6 +1092,186 @@
 
       // Load settings on page load
       loadSettings();
+
+      // ===================== USER MANAGEMENT =====================
+      let _allFaces = [];
+      let _selectedFaceUuids = [];
+
+      async function loadUsers() {
+        const err = document.getElementById("usersError");
+        err.style.display = "none";
+        try {
+          const [usersRes, facesRes] = await Promise.all([
+            fetch("/api/users"),
+            fetch("/api/users/faces"),
+          ]);
+          const uj = await usersRes.json();
+          const fj = await facesRes.json();
+          _allFaces = fj.ok ? fj.faces : [];
+          renderUsers(uj.ok ? uj.users : []);
+        } catch (e) {
+          err.textContent = "Errore caricamento utenti: " + e;
+          err.style.display = "";
+        }
+      }
+
+      function renderUsers(users) {
+        const el = document.getElementById("usersList");
+        if (!users.length) {
+          el.innerHTML = "<p style='color:#888'>Nessun utente registrato.</p>";
+          return;
+        }
+        el.innerHTML = users
+          .map(
+            (u) => `
+          <div style="border:1px solid #333;border-radius:6px;padding:0.8rem;margin-bottom:0.6rem;cursor:pointer" onclick="editUser(${u.user_id})">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <strong>${u.name || "(senza nome)"}</strong>
+              <span style="font-size:0.8em;color:#888">ID: ${u.canonical_id}</span>
+            </div>
+            ${u.telegram_ids.length ? `<div style="font-size:0.82em;color:#aaa">Telegram: ${u.telegram_ids.join(", ")}</div>` : ""}
+            ${u.face_uuids.length ? `<div style="font-size:0.82em;color:#aaa">Volti: ${u.face_uuids.length} collegat${u.face_uuids.length === 1 ? "o" : "i"}</div>` : ""}
+            ${u.notes ? `<div style="font-size:0.8em;color:#666;margin-top:0.2rem">${u.notes}</div>` : ""}
+          </div>
+        `,
+          )
+          .join("");
+      }
+
+      function showAddUser() {
+        _selectedFaceUuids = [];
+        document.getElementById("ufUserId").value = "";
+        document.getElementById("ufName").value = "";
+        document.getElementById("ufTelegram").value = "";
+        document.getElementById("ufNotes").value = "";
+        document.getElementById("userFormTitle").textContent = "Nuovo utente";
+        document.getElementById("ufDeleteBtn").style.display = "none";
+        renderFaceCheckboxes([]);
+        document.getElementById("userForm").style.display = "";
+        document.getElementById("userFormMsg").textContent = "";
+      }
+
+      function editUser(userId) {
+        fetch("/api/users")
+          .then((r) => r.json())
+          .then((j) => {
+            const u = (j.users || []).find((x) => x.user_id === userId);
+            if (!u) return;
+            _selectedFaceUuids = [...(u.face_uuids || [])];
+            document.getElementById("ufUserId").value = u.user_id;
+            document.getElementById("ufName").value = u.name || "";
+            document.getElementById("ufTelegram").value = (
+              u.telegram_ids || []
+            ).join(", ");
+            document.getElementById("ufNotes").value = u.notes || "";
+            document.getElementById("userFormTitle").textContent =
+              `Modifica: ${u.name}`;
+            document.getElementById("ufDeleteBtn").style.display = "";
+            renderFaceCheckboxes(u.face_uuids || []);
+            document.getElementById("userForm").style.display = "";
+            document.getElementById("userFormMsg").textContent = "";
+          });
+      }
+
+      function renderFaceCheckboxes(selectedUuids) {
+        const el = document.getElementById("ufFaceList");
+        if (!_allFaces.length) {
+          el.innerHTML =
+            "<span style='color:#666;font-size:0.85em'>Nessun volto in memoria</span>";
+          return;
+        }
+        el.innerHTML = _allFaces
+          .map((f) => {
+            const checked = selectedUuids.includes(f.uuid) ? "checked" : "";
+            const label =
+              f.name ||
+              `Sconosciuto (${f.uuid.slice(0, 8)}…) — ${f.interactions} interazioni`;
+            return `<label style="font-size:0.85em;display:flex;align-items:center;gap:0.3rem;background:#222;padding:0.3rem 0.5rem;border-radius:4px">
+            <input type="checkbox" value="${f.uuid}" ${checked} onchange="toggleFace(this)">
+            ${label}
+          </label>`;
+          })
+          .join("");
+      }
+
+      function toggleFace(cb) {
+        if (cb.checked) {
+          if (!_selectedFaceUuids.includes(cb.value))
+            _selectedFaceUuids.push(cb.value);
+        } else {
+          _selectedFaceUuids = _selectedFaceUuids.filter((x) => x !== cb.value);
+        }
+      }
+
+      async function saveUser() {
+        const msg = document.getElementById("userFormMsg");
+        const userId = document.getElementById("ufUserId").value;
+        const name = document.getElementById("ufName").value.trim();
+        if (!name) {
+          msg.textContent = "Nome obbligatorio";
+          return;
+        }
+
+        const telegramRaw = document.getElementById("ufTelegram").value;
+        const telegramIds = telegramRaw
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s);
+
+        const body = {
+          name,
+          face_uuids: _selectedFaceUuids,
+          telegram_ids: telegramIds,
+          notes: document.getElementById("ufNotes").value,
+        };
+
+        const method = userId ? "PUT" : "POST";
+        const url = userId ? `/api/users/${userId}` : "/api/users";
+        try {
+          const r = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const j = await r.json();
+          if (j.ok) {
+            msg.style.color = "#4caf50";
+            msg.textContent = "✓ Salvato";
+            await loadUsers();
+            setTimeout(cancelUserForm, 1200);
+          } else {
+            msg.style.color = "#f66";
+            msg.textContent = j.error || "Errore";
+          }
+        } catch (e) {
+          msg.style.color = "#f66";
+          msg.textContent = "Errore di rete";
+        }
+      }
+
+      async function deleteUser() {
+        const userId = document.getElementById("ufUserId").value;
+        if (!userId || !confirm("Eliminare questo utente?")) return;
+        const msg = document.getElementById("userFormMsg");
+        try {
+          const r = await fetch(`/api/users/${userId}`, { method: "DELETE" });
+          const j = await r.json();
+          if (j.ok) {
+            await loadUsers();
+            cancelUserForm();
+          } else {
+            msg.style.color = "#f66";
+            msg.textContent = j.error || "Errore";
+          }
+        } catch (e) {
+          msg.style.color = "#f66";
+          msg.textContent = "Errore di rete";
+        }
+      }
+
+      function cancelUserForm() {
+        document.getElementById("userForm").style.display = "none";
+      }
     </script>
   </body>
 </html>

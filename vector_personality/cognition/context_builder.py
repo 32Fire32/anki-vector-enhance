@@ -161,6 +161,14 @@ class MemoryRetriever:
         r"\bmia\s+madre\b",             # "mia madre"
         r"\bmio\s+figlio\b",            # "mio figlio"
         r"\bmia\s+figlia\b",            # "mia figlia"
+        # Person-inquiry triggers — who is X / do you know X
+        r"\bchi\s+[èe]\b",              # "chi è Jowel?"
+        r"\bconosc[oi]\b",              # "conosci Jowel?"
+        r"\bsai\s+chi\b",               # "sai chi è?"
+        r"\bdi\s+(?:chi|cosa)\s+si\s+tratta\b",  # "di chi si tratta?"
+        r"\bchi\s+era\b",              # "chi era?"
+        r"\bchi\s+sono\b",             # "chi sono?"
+        r"\bparlarti\s+di\b",          # "ti ho parlato di"
     ]
 
     _DATE_RE = re.compile(r"\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{2,4}))?\b")
@@ -291,6 +299,7 @@ class ContextBuilder:
         base_ttl_seconds: int = 300,
         vector_db: Any = None,
         embedding_gen: Any = None,
+        entity_memory: Any = None,
     ):
         self._db = db_connector
         self._wm = working_memory
@@ -300,6 +309,9 @@ class ContextBuilder:
         # T140: Vector database for semantic search
         self._vector_db = vector_db
         self._embedding_gen = embedding_gen
+
+        # Entity memory (structured profiles)
+        self._entity_memory = entity_memory
 
         # NEW: Startup summary (generated once, cached)
         self._startup_summary: Optional[str] = None
@@ -317,11 +329,19 @@ class ContextBuilder:
     async def generate_startup_summary(self, hours: int = 72) -> str:
         """
         Generate comprehensive LLM summary of last N hours.
-        Called ONCE at startup, then cached indefinitely.
-        
+        Cached for SUMMARY_TTL_HOURS; regenerated automatically when stale.
+
         Returns:
             Formatted summary string ready for context
         """
+        SUMMARY_TTL_HOURS = 6
+        if (
+            self._startup_summary
+            and self._summary_generated_at
+            and (datetime.now() - self._summary_generated_at).total_seconds() < SUMMARY_TTL_HOURS * 3600
+        ):
+            return self._startup_summary
+
         if not self._groq:
             self._logger.warning("⚠️ No Groq client available - falling back to raw context")
             return await self._get_or_build_base_context()
@@ -347,19 +367,53 @@ class ContextBuilder:
             # Fallback to old method
             return await self._get_or_build_base_context()
 
-    async def build_conversation_context(self, user_text: Optional[str] = None) -> str:
+    async def build_conversation_context(
+        self, user_text: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Build context for current conversation.
-        
+
+        Returns a dict with:
+          - ``"memory"``      : str  — full conversation/scene memory block
+          - ``"user_facts"``  : str  — personal facts about the user (always present,
+                                       injected prominently at the top of the LLM prompt)
+
         NEW BEHAVIOR:
         - Always uses cached startup summary as base (if available)
         - Only searches DB for old memories if user asks explicitly
+        - Personal facts are returned separately so the caller can place them
+          prominently in the system prompt (small-model "lost in the middle" fix)
         """
-        # Use startup summary if available, otherwise old method
-        if self._startup_summary:
+        # Use startup summary if available AND still fresh (max 6 h), otherwise old method
+        SUMMARY_TTL_HOURS = 6
+        summary_fresh = (
+            self._startup_summary
+            and self._summary_generated_at
+            and (datetime.now() - self._summary_generated_at).total_seconds() < SUMMARY_TTL_HOURS * 3600
+        )
+        if summary_fresh:
             base = f"{STATIC_CONTEXT}\n\n{self._startup_summary}"
         else:
             base = await self._get_or_build_base_context()
 
+        # ── Entity profiles (structured, permanent) ──────────────────────────
+        # Prefer EntityMemory (structured cards) over flat user_facts fallback.
+        if self._entity_memory is not None:
+            facts_str = await self._safe_get_entity_profiles()
+        else:
+            facts = await self._safe_get_user_facts()
+            facts_str = self._format_user_facts(facts) if facts else ""
+
+        # ── Always-on semantic conversation search (DISABLED for now) ────────────────────────────
+        # [TEMP DISABLED] Semantic search adds noise when semantic_conversations has conflicting data.
+        # Re-enable only after:
+        # 1. Semantic index is clean (no contradictory conversations)
+        # 2. Filtering logic prevents entity facts conflicts
+        # if user_text and self._embedding_gen:
+        #     semantic_snippet = await self._safe_semantic_search(user_text, top_k=5)
+        #     if semantic_snippet:
+        #         base = base + "\n\n" + semantic_snippet
+
+        # ── Explicit memory-recall (keyword trigger) ──────────────────────────
         if user_text:
             req = self._retriever.detect_memory_request(user_text)
             if req.is_memory_request:
@@ -374,11 +428,30 @@ class ContextBuilder:
                         vec_snippet = (r.get('response_text') or '')[:60].replace('\n', ' ')
                         score = r.get('relevance_score', 0)
                         logger.info(f"   Match {i} [score={score}]: U={user_snippet}... V={vec_snippet}...")
-                    return self._inject_retrieved_context(base, retrieved)
+                    
+                    # Filter out conversations that contradict entity_profiles (prevents hallucination injection)
+                    if self._entity_memory:
+                        entity_cards = await self._entity_memory.get_all_cards()
+                        retrieved = await self._filter_contradictory_conversations(retrieved, entity_cards)
+                        if len(retrieved) < 1:
+                            logger.warning("⚠️ All retrieved conversations contradicted entity_profiles; using base context instead")
+                        else:
+                            logger.info(f"✅ Filtered to {len(retrieved)} non-contradictory conversation(s)")
+                    
+                    if retrieved:
+                        memory_str = self._inject_retrieved_context(base, retrieved)
+                        # Extract compact keyword-relevant sentences to surface at top of user_facts
+                        fact_excerpt = self._extract_fact_sentences(retrieved, req.keywords)
+                        result: Dict[str, Any] = {"memory": memory_str, "user_facts": facts_str}
+                        if fact_excerpt:
+                            # Short recall hint for assistant-message injection
+                            result["memory_recall_hint"] = fact_excerpt
+                            logger.info(f"🎯 Injecting {len(fact_excerpt)} chars of keyword-extracted facts")
+                        return result
                 else:
                     logger.warning(f"⚠️ Memory request detected but no old conversations found for keywords: {req.keywords}")
 
-        return base
+        return {"memory": base, "user_facts": facts_str}
 
     def invalidate_cache(self) -> None:
         """Invalidate cached base context so next call reflects latest DB state."""
@@ -455,6 +528,54 @@ class ContextBuilder:
             return await self._db.get_recent_conversations(hours=hours, limit=limit)
         except Exception:
             return []
+
+    async def _safe_get_user_facts(self) -> List[Dict[str, Any]]:
+        try:
+            return await self._db.get_all_user_facts()
+        except Exception:
+            return []
+
+    async def _safe_get_entity_profiles(self) -> str:
+        """Return entity profiles formatted for the prompt (via EntityMemory)."""
+        try:
+            from vector_personality.memory.entity_memory import EntityMemory
+            cards = await self._entity_memory.get_all_cards()
+            return EntityMemory.format_cards_for_prompt(cards)
+        except Exception as e:
+            self._logger.debug(f"[ContextBuilder] entity profiles unavailable: {e}")
+            return ""
+
+    async def _safe_semantic_search(self, user_text: str, top_k: int = 5) -> str:
+        """Run semantic search on conversations; return a formatted snippet or ''."""
+        try:
+            emb = await self._embedding_gen.generate_embedding(user_text)
+            if not emb:
+                return ""
+            results = await self._db.search_semantic_conversations(
+                query_embedding=emb, top_k=top_k
+            )
+            if not results:
+                return ""
+            lines = ["CONVERSAZIONI CORRELATE (ricerca semantica):"]
+            for r in results:
+                excerpt = (r.get("text") or r.get("response_text") or "")[:120].replace("\n", " ")
+                if excerpt:
+                    lines.append(f"  • {excerpt}")
+            return "\n".join(lines) if len(lines) > 1 else ""
+        except Exception as e:
+            self._logger.debug(f"[ContextBuilder] always-on semantic search failed: {e}")
+            return ""
+
+    @staticmethod
+    def _format_user_facts(facts: List[Dict[str, Any]]) -> str:
+        """Format user_facts list as a prompt-ready string."""
+        lines = ["FATTI SULL'UTENTE (appresi nelle conversazioni, sempre validi):"]
+        for f in facts:
+            subject = f.get("subject", "?")
+            attribute = f.get("attribute", "?")
+            value = f.get("value", "?")
+            lines.append(f"  - {subject} → {attribute}: {value}")
+        return "\n".join(lines)
 
     async def _safe_get_known_faces(self, limit: int) -> List[Dict[str, Any]]:
         try:
@@ -572,19 +693,110 @@ class ContextBuilder:
             self._logger.error(f"❌ Semantic search error: {e}")
             return []
 
+    async def _filter_contradictory_conversations(
+        self, 
+        conversations: List[Dict[str, Any]], 
+        entity_cards: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Remove conversations whose responses contradict entity profiles.
+        
+        Prevents hallucinated facts from being re-injected into the prompt.
+        Example: If entity says utente.eta=43 but a retrieved conversation 
+        has response "Hai 39 anni", that conversation is filtered out.
+        """
+        if not entity_cards:
+            return conversations
+        
+        # Build a set of known facts from entity profiles
+        known_facts = {}
+        for card in entity_cards:
+            entity_name = card.get("entity_name", "")
+            facts = card.get("facts", {})
+            for attr, value in facts.items():
+                # Store as lowercase for case-insensitive matching
+                key = f"{entity_name}_{attr}".lower()
+                known_facts[key] = str(value).lower()
+        
+        # Check each conversation for contradictions
+        filtered = []
+        for conv in conversations:
+            response_text = (conv.get("response_text") or "").lower()
+            is_contradictory = False
+            
+            # Simple heuristic: check if response mentions a conflicting fact
+            # Examples: "hai 39 anni" contradicts "eta: 43"
+            for fact_key, fact_value in known_facts.items():
+                # If the response mentions a different value for the same attribute
+                if "utente_eta" in fact_key or "eta" in fact_key:
+                    # Extract age numbers from response
+                    import re
+                    ages_in_response = re.findall(r'\b(\d+)\s*anni\b', response_text)
+                    if ages_in_response:
+                        for age in ages_in_response:
+                            if age != fact_value.strip():
+                                self._logger.warning(
+                                    f"⚠️ Contradiction detected: conversation says '{age} anni' "
+                                    f"but entity_profile says '{fact_value}' — filtering out"
+                                )
+                                is_contradictory = True
+                                break
+            
+            if not is_contradictory:
+                filtered.append(conv)
+        
+        return filtered
+
+    def _extract_fact_sentences(self, retrieved: List[Dict[str, Any]], keywords: List[str]) -> str:
+        """Scan retrieved conversations for sentences containing the query keywords.
+
+        Returns a short, high-salience block (≤5 bullet points, ≤500 chars total)
+        ready to be injected into user_facts at the top of the system prompt.
+        """
+        import re as _re
+        lower_kw = [k.lower() for k in keywords if len(k) >= 3]
+        if not lower_kw:
+            return ""
+
+        found: List[str] = []
+        for r in retrieved:
+            for field in ("text", "response_text"):
+                full_text = (r.get(field) or "").strip()
+                if not full_text:
+                    continue
+                for sentence in _re.split(r"[.!?\n]+", full_text):
+                    sentence = sentence.strip()
+                    if len(sentence) < 10:
+                        continue
+                    if any(kw in sentence.lower() for kw in lower_kw):
+                        s = sentence[:160]
+                        if s not in found:
+                            found.append(s)
+                    if len(found) >= 6:
+                        break
+            if len(found) >= 6:
+                break
+
+        if not found:
+            return ""
+        return "\n".join(f"  • {s}" for s in found[:5])
+
     def _inject_retrieved_context(self, base_context: str, retrieved: List[Dict[str, Any]]) -> str:
-        lines = [base_context, "\nRICORDI RECUPERATI (ricerca mirata):"]
+        lines = [base_context, "\n⚠️ RICORDI RECUPERATI — DEVI usarli per rispondere. NON dire 'non ricordo' se le informazioni sono qui sotto:"]
         for r in retrieved[:5]:
             who = r.get("person") or r.get("speaker_name") or "Unknown"
             days_ago = r.get("days_ago")
             when = self._format_dt(r.get("timestamp"))
-            user_text = self._truncate(r.get("text") or r.get("user_text") or "", 140)
-            
-            # T140: Include timestamp to help LLM recognize temporal conflicts
+            # Increased limit: 220 chars for user text, 220 for Vector's response
+            user_text = self._truncate(r.get("text") or r.get("user_text") or "", 220)
+            vec_text = self._truncate(r.get("response_text") or "", 220)
+
             if days_ago is not None:
-                lines.append(f"- {days_ago} giorni fa ({when}) con {who}: {user_text}")
+                line = f"- {days_ago} giorni fa ({when}) con {who}: [{who}]: {user_text}"
             else:
-                lines.append(f"- ({when}) con {who}: {user_text}")
+                line = f"- ({when}) con {who}: [{who}]: {user_text}"
+            if vec_text:
+                line += f"  [Vector]: {vec_text}"
+            lines.append(line)
         return "\n".join(lines).strip()
 
     @staticmethod
@@ -600,8 +812,14 @@ class ContextBuilder:
             return "?"
         if isinstance(value, datetime):
             return value.strftime("%Y-%m-%d %H:%M")
-        # ChromaDB may return datetime as string; parse if needed.
+        # ChromaDB returns timestamps as ISO strings — parse them properly.
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value).strftime("%Y-%m-%d %H:%M")
+            except ValueError:
+                pass
+        # Numeric epoch (float/int)
         try:
-            return str(value)
+            return datetime.fromtimestamp(float(value)).strftime("%Y-%m-%d %H:%M")
         except Exception:
-            return "?"
+            return str(value) or "?"

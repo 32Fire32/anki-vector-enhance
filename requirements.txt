@@ -1,7 +1,19 @@
 aiogrpc>=1.4
+aiohttp
+setuptools<79           # pkg_resources removed in setuptools>=79
+sounddevice
+gtts
+pygame
+pydub
+faster-whisper
+torch
+torchvision
+facenet-pytorch
+chromadb
 cryptography
 flask
 googleapis-common-protos
+openai
 protobuf<=3.20.0        # Pinned to avoid incompatibility with generated .pb2 files
 numpy>=1.11
 Pillow>=3.3
@@ -9,3 +21,4 @@ requests
 fastapi
 uvicorn[standard]
 python-telegram-bot>=21.0
+webrtcvad

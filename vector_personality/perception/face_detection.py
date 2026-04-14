@@ -164,7 +164,7 @@ class FaceDetectionHandler:
         if face:
             await self._process_face(face)
         else:
-            logger.warning(f"Could not retrieve face object for ID {event.face_id}")
+            logger.debug(f"Could not retrieve face object for ID {event.face_id} (SDK timing race, harmless)")
 
     async def _process_face(self, face):
         """

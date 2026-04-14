@@ -104,6 +104,17 @@ class ChromaDBConnector:
             name="personality_learned",
             metadata={"hnsw:space": "cosine"},
         )
+        self.user_facts = self.client.get_or_create_collection(
+            name="user_facts",
+            metadata={"hnsw:space": "cosine"},
+        )
+        # High-dim collection for real-embedding semantic search.
+        # Separate from `conversations` (which uses 3-dim dummies) to
+        # avoid ChromaDB dimension-mismatch errors.
+        self.semantic_conversations = self.client.get_or_create_collection(
+            name="semantic_conversations",
+            metadata={"hnsw:space": "cosine"},
+        )
 
         logger.info(
             f"ChromaDB connector initialized: {persist_directory} "
@@ -631,7 +642,9 @@ class ChromaDBConnector:
                 logger.warning(f"Failed to generate conversation embedding: {e}")
 
         # Use generated embedding or dummy
-        emb = embedding if embedding else self._dummy_embedding()
+        # ALWAYS use dummy for `conversations` collection — it was created with dim=3.
+        # Real embeddings go to `semantic_conversations` below.
+        emb = self._dummy_embedding()
         self.conversations.add(ids=[cid], embeddings=[emb], metadatas=[meta])
 
         # Also store in the semantic search collection if vector_db provided
@@ -650,6 +663,26 @@ class ChromaDBConnector:
                 logger.info(f"🔢 Embedding stored for conversation {cid[:8]}...")
             except Exception as e:
                 logger.warning(f"Failed to store embedding in vector_db: {e}")
+
+        # Also store in our own semantic_conversations collection
+        if embedding:
+            try:
+                full_text = f"User: {text}"
+                if response_text:
+                    full_text += f"\nVector: {response_text}"
+                sem_meta = {
+                    "speaker_id": speaker_id,
+                    "timestamp": now,
+                    "timestamp_epoch": datetime.now().timestamp(),
+                    "text_excerpt": full_text[:300],
+                }
+                self.semantic_conversations.upsert(
+                    ids=[cid],
+                    embeddings=[embedding],
+                    metadatas=[sem_meta],
+                )
+            except Exception as e:
+                logger.debug(f"semantic_conversations store skipped: {e}")
 
         return cid
 
@@ -731,16 +764,13 @@ class ChromaDBConnector:
 
         cutoff_old_ts = (datetime.now() - timedelta(days=days_back)).timestamp()
         try:
-            # Get all conversations within range (use numeric epoch for ChromaDB $gte)
-            result = self.conversations.get(
-                where={"timestamp_epoch": {"$gte": cutoff_old_ts}},
-                include=["metadatas"],
-            )
+            # Always fetch ALL conversations and filter in Python.
+            # A $gte where-clause silently drops documents that lack the field,
+            # so any conversation stored before timestamp_epoch was added would be
+            # invisible. Python-side filtering is robust regardless of schema age.
+            result = self.conversations.get(include=["metadatas"])
             if not result["ids"]:
-                # Fallback: no timestamp_epoch metadata — fetch all and filter in Python
-                result = self.conversations.get(include=["metadatas"])
-                if not result["ids"]:
-                    return []
+                return []
 
             # Apply exclude_recent filter
             if exclude_recent_hours and int(exclude_recent_hours) > 0:
@@ -771,13 +801,9 @@ class ChromaDBConnector:
                 text = (meta.get("text") or "").lower()
                 response = (meta.get("response_text") or "").lower()
 
-                # Skip hallucination responses
-                skip_phrases = [
-                    "non mi ricordo", "non lo so", "non l'ho mai", "non so chi",
-                    "non ho dati", "non ho informazioni", "non ho osservato"
-                ]
-                if any(phrase in response for phrase in skip_phrases):
-                    continue
+                # NOTE: do NOT skip "non mi ricordo" responses here.
+                # Those are valid episodic memories (Vector remembers saying it didn't know).
+                # Hallucination filtering belongs in context_builder, not in raw search.
 
                 # Score relevance
                 score = 0
@@ -814,6 +840,154 @@ class ChromaDBConnector:
             return matches[:limit]
         except Exception as e:
             logger.error(f"search_old_conversations failed: {e}")
+            return []
+
+    # ================================================================
+    #  SEMANTIC CONVERSATION SEARCH
+    # ================================================================
+
+    async def store_semantic_conversation(
+        self,
+        conversation_id: str,
+        embedding: List[float],
+        text_excerpt: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Store a conversation with a real embedding for semantic search.
+
+        Uses the `semantic_conversations` collection (high-dim, separate from
+        the dummy-embedded `conversations` collection).
+        """
+        meta = {
+            "text_excerpt": text_excerpt[:300],
+            "stored_at": _now_iso(),
+        }
+        if metadata:
+            meta.update(metadata)
+        try:
+            self.semantic_conversations.upsert(
+                ids=[conversation_id],
+                embeddings=[embedding],
+                metadatas=[meta],
+            )
+        except Exception as e:
+            logger.warning(f"store_semantic_conversation failed ({conversation_id}): {e}")
+
+    async def search_semantic_conversations(
+        self,
+        query_embedding: List[float],
+        top_k: int = 5,
+        min_similarity: float = 0.25,
+    ) -> List[Dict[str, Any]]:
+        """Return the most semantically relevant stored conversations.
+
+        Fetches full metadata from the `conversations` collection by ID so
+        the result has the same shape as `get_recent_conversations`.
+        """
+        count = self.semantic_conversations.count()
+        if count == 0:
+            return []
+        try:
+            n = min(top_k, count)
+            result = self.semantic_conversations.query(
+                query_embeddings=[query_embedding],
+                n_results=n,
+                include=["metadatas", "distances"],
+            )
+            rows: List[Dict[str, Any]] = []
+            for cid, meta, dist in zip(
+                result["ids"][0],
+                result["metadatas"][0],
+                result["distances"][0],
+            ):
+                similarity = 1.0 - dist
+                if similarity < min_similarity:
+                    continue
+                # Enrich with full data from conversations collection
+                try:
+                    full = self.conversations.get(ids=[cid], include=["metadatas"])
+                    if full["ids"]:
+                        row = {"conversation_id": cid, **full["metadatas"][0]}
+                        row["relevance_score"] = round(similarity, 3)
+                        # Resolve speaker name
+                        sid = row.get("speaker_id", "")
+                        if sid:
+                            face = await self.get_face_by_id(sid)
+                            row["speaker_name"] = face.get("name", "Unknown") if face else "Unknown"
+                        else:
+                            row["speaker_name"] = "Unknown"
+                        rows.append(row)
+                        continue
+                except Exception:
+                    pass
+                # Fallback: use metadata stored in semantic_conversations
+                rows.append(
+                    {
+                        "conversation_id": cid,
+                        "relevance_score": round(similarity, 3),
+                        "text": meta.get("text_excerpt", ""),
+                        "speaker_name": "Unknown",
+                    }
+                )
+
+            rows.sort(key=lambda r: -r.get("relevance_score", 0))
+            return rows
+        except Exception as e:
+            logger.warning(f"search_semantic_conversations failed: {e}")
+            return []
+
+    # ================================================================
+    #  USER FACTS (persistent personal knowledge about the user)
+    # ================================================================
+
+    async def store_user_fact(
+        self,
+        subject: str,
+        attribute: str,
+        value: str,
+        speaker_id: str = "owner",
+    ) -> None:
+        """Upsert a personal fact. Key = speaker_id__subject__attribute.
+
+        Uses ChromaDB upsert so repeat mentions update the value
+        rather than creating duplicate entries.
+        """
+        fact_id = f"{speaker_id}__{subject}__{attribute}"
+        now = _now_iso()
+        meta: Dict[str, Any] = {
+            "speaker_id": speaker_id,
+            "subject": subject,
+            "attribute": attribute,
+            "value": value,
+            "updated_at": now,
+        }
+        try:
+            self.user_facts.upsert(
+                ids=[fact_id],
+                embeddings=[self._dummy_embedding()],
+                metadatas=[meta],
+            )
+            logger.info(f"user_fact upserted: {fact_id} = {value!r}")
+        except Exception as e:
+            logger.warning(f"store_user_fact failed ({fact_id}): {e}")
+
+    async def get_all_user_facts(
+        self, speaker_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Return all stored personal facts, optionally filtered by speaker."""
+        try:
+            if speaker_id:
+                result = self.user_facts.get(
+                    where={"speaker_id": speaker_id},
+                    include=["metadatas"],
+                )
+            else:
+                result = self.user_facts.get(include=["metadatas"])
+            return [
+                {"fact_id": fid, **meta}
+                for fid, meta in zip(result["ids"], result["metadatas"])
+            ]
+        except Exception:
             return []
 
     # ================================================================

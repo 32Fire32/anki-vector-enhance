@@ -12,6 +12,44 @@ Opens a browser to http://localhost:8765 with tabs:
   - Settings:  Model selection, volume, scan interval
 """
 
+# ---------------------------------------------------------------------------
+# Self-bootstrap: create/activate a local .venv and re-launch inside it.
+# This runs BEFORE any other imports so incompatible packages are never loaded.
+# ---------------------------------------------------------------------------
+import sys, os
+
+def _bootstrap_venv():
+    import subprocess
+    from pathlib import Path
+
+    project_root = Path(__file__).parent
+    venv_dir = project_root / ".venv"
+    venv_python = venv_dir / "Scripts" / "python.exe" if sys.platform == "win32" \
+        else venv_dir / "bin" / "python"
+
+    # Already inside the project venv — nothing to do.
+    if Path(sys.executable).resolve() == venv_python.resolve():
+        return
+
+    # Create the venv if it doesn't exist yet.
+    if not venv_python.exists():
+        print("[bootstrap] Creating virtual environment at .venv …")
+        subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
+
+    # Install / sync requirements into the venv.
+    req_file = project_root / "requirements.txt"
+    if req_file.exists():
+        print("[bootstrap] Installing requirements into .venv …")
+        subprocess.check_call([str(venv_python), "-m", "pip", "install", "--quiet",
+                               "-r", str(req_file)])
+
+    # Re-launch this script inside the venv and exit the outer process.
+    print("[bootstrap] Restarting inside .venv …")
+    os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
+_bootstrap_venv()
+# ---------------------------------------------------------------------------
+
 import asyncio
 import json
 import logging
@@ -29,7 +67,7 @@ from typing import Optional
 import uvicorn
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -540,7 +578,7 @@ async def get_settings():
 @app.post("/api/settings")
 async def update_settings(body: dict):
     allowed_keys = {
-        "OLLAMA_MODEL", "VLM_MODEL", "VLM_INTERVAL", "WHISPER_MODEL",
+        "OLLAMA_MODEL", "STANDALONE_MODEL", "VLM_MODEL", "VLM_INTERVAL", "WHISPER_MODEL",
         "AUDIO_SOURCE", "MICROPHONE_DEVICE_ID", "AMBIENT_MODE",
         "STARTUP_MEMORY_HOURS", "VECTOR_HOST",
     }
@@ -594,10 +632,17 @@ async def api_chat(body: dict):
     Works in two modes:
     - Agent running: uses ChatHandler (full context, TTS, visual memory)
     - Agent stopped: uses StandaloneChatHandler (Ollama + ChromaDB, no robot)
+    
+    Accepts optional 'user_name' in body (defaults to environment var or "Web User")
     """
     text = (body.get("message") or "").strip()
     if not text:
         return {"ok": False, "error": "Empty message"}
+
+    # user_name is intentionally NOT defaulted here — if unknown, Vector will ask naturally.
+    # It becomes known via entity_memory (fact_extractor stores "Mi chiamo X" → entity_profiles).
+    user_name = body.get("user_name") or None
+    user_id = body.get("user_id") or None
 
     agent_handler = bridge._chat_handler
     loop = bridge._loop
@@ -605,7 +650,7 @@ async def api_chat(body: dict):
     if agent_handler and loop and loop.is_running():
         # Agent is running — route through its event loop for full context
         future = asyncio.run_coroutine_threadsafe(
-            agent_handler.handle_message(text, channel="web", user_name="Web User"),
+            agent_handler.handle_message(text, channel="web", user_id=user_id, user_name=user_name),
             loop,
         )
         try:
@@ -622,7 +667,7 @@ async def api_chat(body: dict):
             "error": "Nessun sistema AI disponibile. Assicurati che Ollama sia in esecuzione.",
         }
     try:
-        response = await sc.handle_message(text, channel="web", user_name="Web User")
+        response = await sc.handle_message(text, channel="web", user_id=user_id, user_name=user_name)
     except Exception as e:
         return {"ok": False, "error": str(e)}
     return {"ok": True, "response": response}
@@ -641,8 +686,90 @@ async def camera_snapshot():
 
 
 # ---------------------------------------------------------------------------
-# WebSocket for real-time updates
+# User Management API
 # ---------------------------------------------------------------------------
+
+def _get_registry():
+    """Get UserRegistry from agent or standalone, falling back to a fresh instance."""
+    agent = getattr(bridge._chat_handler, "agent", None) if bridge._chat_handler else None
+    if agent and getattr(agent, "user_registry", None):
+        return agent.user_registry
+    sc = bridge._standalone_chat
+    if sc and getattr(sc, "_user_registry", None):
+        return sc._user_registry
+    from vector_personality.memory.user_registry import UserRegistry
+    return UserRegistry()
+
+
+def _get_faces_from_db() -> list:
+    """Return list of face records {uuid, name} from ChromaDB faces collection."""
+    import chromadb
+    try:
+        client = chromadb.PersistentClient(path=os.getenv("CHROMADB_DIR", "./vector_memory_chroma"))
+        col = client.get_collection("faces")
+        r = col.get(include=["metadatas"])
+        return [
+            {"uuid": id_, "name": m.get("name", ""), "interactions": m.get("total_interactions", 0)}
+            for id_, m in zip(r["ids"], r["metadatas"])
+        ]
+    except Exception:
+        return []
+
+
+@app.get("/api/users")
+async def get_users():
+    """Return all registered users."""
+    registry = _get_registry()
+    return {"ok": True, "users": registry.get_all_users()}
+
+
+@app.get("/api/users/faces")
+async def get_faces_for_assignment():
+    """Return known face UUIDs from face recognition database."""
+    return {"ok": True, "faces": _get_faces_from_db()}
+
+
+@app.post("/api/users")
+async def create_user(request: Request):
+    data = await request.json()
+    name = (data.get("name") or "").strip()
+    if not name:
+        return {"ok": False, "error": "name is required"}
+    registry = _get_registry()
+    user = registry.create_user(
+        name=name,
+        face_uuids=data.get("face_uuids", []),
+        telegram_ids=[int(t) for t in data.get("telegram_ids", []) if str(t).strip()],
+        notes=data.get("notes", ""),
+    )
+    return {"ok": True, "user": user}
+
+
+@app.put("/api/users/{user_id}")
+async def update_user(user_id: int, request: Request):
+    data = await request.json()
+    registry = _get_registry()
+    updated = registry.update_user(
+        user_id,
+        name=data.get("name"),
+        face_uuids=data.get("face_uuids"),
+        telegram_ids=[int(t) for t in data.get("telegram_ids", [])] if "telegram_ids" in data else None,
+        web_session_ids=data.get("web_session_ids"),
+        notes=data.get("notes"),
+    )
+    if updated is None:
+        return {"ok": False, "error": f"User {user_id} not found"}
+    return {"ok": True, "user": updated}
+
+
+@app.delete("/api/users/{user_id}")
+async def delete_user(user_id: int):
+    registry = _get_registry()
+    ok = registry.delete_user(user_id)
+    return {"ok": ok, "error": None if ok else f"User {user_id} not found"}
+
+
+
 connected_ws: list = []
 
 
