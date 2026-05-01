@@ -5,13 +5,28 @@ Wire-pod already does STT correctly via its own Vosk/Whisper pipeline.
 This module exposes a minimal OpenAI-compatible endpoint so wire-pod
 can forward the transcribed speech text to our personality engine.
 
-How it works:
+How it works (standalone mode — PRESENCE_HUB_URL not set):
   1. User says "Hey Vector, <command>"
   2. Wire-pod does wake-word detection + STT → gets transcript
   3. Wire-pod's knowledge-graph sends POST /v1/chat/completions here
-  4. We run the transcript through our reasoning/memory/emotion pipeline
-  5. We return the response text in streaming SSE format
-  6. Wire-pod has Vector speak the response via its native TTS
+  4. We call handle_speech_for_wirepod() → full local AI pipeline
+     (ChromaDB memory, Ollama/Groq LLM, FactExtractor, MoodEngine)
+  5. We return " " (space) to wire-pod — we already spoke via gTTS
+  6. Wire-pod does NOT double-speak via its English TTS
+
+How it works (presence-hub mode — PRESENCE_HUB_URL=http://...:8000):
+  1-3. Same as above
+  4. handle_speech_for_wirepod() detects PRESENCE_HUB_URL and
+     dispatches to _handle_speech_hub_mode() instead:
+       - Collects environmental context (room, faces, objects)
+       - Forwards speech + metadata to presence-hub POST /api/message
+       - Presence-hub runs Ollama inference, Mem0 memory, emotion model
+       - Local ChromaDB, FactExtractor, MoodEngine are bypassed entirely
+       - Only conversation_history and behavioural state are updated locally
+  5-6. Same as above
+
+All hub vs local dispatch logic lives in vector_agent.py, not here.
+This module is intentionally a thin HTTP adapter.
 
 Configuration in wire-pod web UI (http://192.168.1.6:8080):
   Knowledge Graph → Provider: Custom
@@ -20,6 +35,7 @@ Configuration in wire-pod web UI (http://192.168.1.6:8080):
   Enable Intent Graph: YES  ← routes all speech here, not just "I have a question"
 
 Port: configurable via WIREPOD_BRIDGE_PORT env var (default 8181)
+Presence-hub: set PRESENCE_HUB_URL in api.env to enable hub mode.
 """
 
 import asyncio
@@ -44,6 +60,7 @@ _agent = None  # set by start_wirepod_bridge()
 def _set_agent(agent):
     global _agent
     _agent = agent
+
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -93,22 +110,16 @@ async def handle_chat_completions(request: web.Request) -> web.StreamResponse:
 
     logger.info(f"[WirePodBridge] 🗣️ Received: '{user_text}'")
 
-    # Generate response via agent (agent speaks via our Italian gTTS internally)
-    response_text = "Non ho capito, puoi ripetere?"  # fallback
-    try:
-        if _agent is not None:
-            response_text = await _agent.handle_speech_for_wirepod(user_text)
-        else:
-            logger.warning("[WirePodBridge] Agent not available — returning fallback")
-    except Exception as exc:
-        logger.error(f"[WirePodBridge] Agent error: {exc}", exc_info=True)
-        response_text = "Ho avuto un problema. Riprova."
+    # Fire-and-forget: handle_speech_for_wirepod() in vector_agent.py decides
+    # whether to use the presence-hub or the local pipeline based on
+    # PRESENCE_HUB_URL.  We return " " immediately so wire-pod does NOT
+    # double-speak via Vector's English built-in TTS.
+    if _agent is not None:
+        asyncio.create_task(_agent.handle_speech_for_wirepod(user_text))
+    else:
+        logger.warning("[WirePodBridge] Agent not initialised — ignoring speech")
 
-    # Return " " (space) to wire-pod so it does NOT double-speak via
-    # Vector's English built-in TTS.  Our agent already spoke the
-    # response in Italian via gTTS above.
     wire_pod_reply = " "
-
     completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
 
     if stream:
@@ -186,14 +197,14 @@ async def handle_catchall(request: web.Request) -> web.Response:
             return web.json_response({"error": "no user message"}, status=400)
 
         logger.info(f"[WirePodBridge] 🗣️ Received (fallback path): '{user_text}'")
-        response_text = "Non ho capito, puoi ripetere?"
-        try:
-            if _agent is not None:
-                response_text = await _agent.handle_speech_for_wirepod(user_text)
-        except Exception as exc:
-            logger.error(f"[WirePodBridge] Agent error: {exc}", exc_info=True)
 
-        # Return " " to wire-pod — our agent already spoke via gTTS
+        # Fire-and-forget: delegate to agent — same logic as main handler
+        if _agent is not None:
+            asyncio.create_task(_agent.handle_speech_for_wirepod(user_text))
+        else:
+            logger.warning("[WirePodBridge] Agent not initialised — ignoring speech")
+
+        # Return " " to wire-pod — our pipeline speaks via gTTS
         wire_pod_reply = " "
         completion_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
         if stream:

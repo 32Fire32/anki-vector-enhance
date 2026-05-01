@@ -1330,17 +1330,121 @@ class VectorAgent:
         """
         Process transcribed speech from wire-pod's STT pipeline.
 
-        Called by the WirePodBridge HTTP server when wire-pod forwards a
-        user utterance.  Runs the full reasoning / memory / emotion pipeline,
-        speaks the response via our Italian gTTS, and returns the response text.
+        Dispatches to one of two modes based on ``PRESENCE_HUB_URL`` env var:
 
-        Wire-pod will receive back a " " (space) from the bridge so it does
-        NOT double-speak the response via Vector's English built-in TTS.
+        **Hub mode** (``PRESENCE_HUB_URL`` is set):
+          Forwards speech + environmental context to presence-hub.
+          Presence-hub handles Ollama inference, Mem0 episodic memory, and
+          emotional state.  Only the local TTS and lightweight behavioural
+          state (conversation_history, conversation_active) are updated here.
+          Local ChromaDB, FactExtractor and MoodEngine conversation updates
+          are entirely bypassed — the hub owns the AI state.
+
+        **Local mode** (default):
+          Runs the full local pipeline: reasoning context assembly,
+          ChromaDB episodic memory read, ResponseGenerator (Ollama/Groq),
+          ChromaDB write, FactExtractor, conversation history.
+
+        In both cases Vector speaks via Italian gTTS and wire-pod receives
+        " " (space) so it does NOT double-speak via its English TTS.
 
         :param text: Transcribed speech from wire-pod.
         :returns:    Italian response text.
         """
-        logger.info(f"[WirePodBridge] 🎤 Processing: '{text}'")
+        hub_url = os.environ.get("PRESENCE_HUB_URL", "").strip().rstrip("/")
+        if hub_url:
+            return await self._handle_speech_hub_mode(text, hub_url)
+        return await self._handle_speech_local(text)
+
+    # ------------------------------------------------------------------
+    # Hub-mode handler — presence-hub owns inference, memory, and emotion
+    # ------------------------------------------------------------------
+
+    async def _handle_speech_hub_mode(self, text: str, hub_url: str) -> str:
+        """
+        Lightweight handler used when PRESENCE_HUB_URL is configured.
+
+        Keeps:  environmental context collection (forwarded as metadata),
+                conversation_history, conversation_active,
+                last_interaction_time, TTS.
+        Skips:  context_builder (ChromaDB reads), ResponseGenerator (LLM),
+                db.store_conversation (ChromaDB writes), FactExtractor,
+                MoodEngine conversation-based updates.
+        """
+        logger.info(f"[HubMode] 🎤 Forwarding to presence-hub: '{text}'")
+
+        # ── 1. Collect environmental context from physical sensors ─────────
+        env_metadata: dict = {}
+        try:
+            if self.reasoning_engine:
+                raw_ctx = await self.reasoning_engine.assemble_context()
+                env_metadata = {
+                    "room": raw_ctx.get("room"),
+                    "faces": [f["name"] for f in raw_ctx.get("faces", [])],
+                    "objects": [o["type"] for o in raw_ctx.get("objects", [])[:5]],
+                    "local_mood": raw_ctx.get("mood"),
+                }
+                # Drop None values so the hub payload stays clean
+                env_metadata = {k: v for k, v in env_metadata.items() if v is not None}
+        except Exception as e:
+            logger.debug(f"[HubMode] Context assembly skipped: {e}")
+
+        # ── 2. Forward to presence-hub ─────────────────────────────────────
+        reply: str | None = None
+        payload = {
+            "agent_id": "vector",
+            "content": text,
+            "channel": "wirepod",
+            "user_id": "wirepod",
+            **({"metadata": env_metadata} if env_metadata else {}),
+        }
+        from aiohttp import ClientSession, ClientTimeout
+        timeout = ClientTimeout(total=30)
+        try:
+            async with ClientSession(timeout=timeout) as session:
+                async with session.post(f"{hub_url}/api/message", json=payload) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        reply = (data.get("reply") or "").strip() or None
+                        logger.info(f"[HubMode] ✅ Hub reply: '{reply}'")
+                    else:
+                        body = await resp.text()
+                        logger.warning(f"[HubMode] Hub returned HTTP {resp.status}: {body[:200]}")
+        except Exception as exc:
+            logger.warning(f"[HubMode] Hub unreachable: {exc}")
+
+        if reply is None:
+            logger.warning("[HubMode] Hub failed — falling back to local pipeline")
+            return await self._handle_speech_local(text)
+
+        # ── 3. Update lightweight local state only ─────────────────────────
+        self.conversation_history.append({"role": "user", "content": text})
+        self.conversation_history.append({"role": "assistant", "content": reply})
+        if len(self.conversation_history) > 10:
+            self.conversation_history = self.conversation_history[-10:]
+        self.conversation_active = True
+        self.last_interaction_time = datetime.now()
+
+        # ── 4. Speak via local Italian gTTS ───────────────────────────────
+        if self.tts:
+            if self.audio_processor:
+                self.audio_processor.discard_pending_utterances()
+            await self.tts.speak(reply)
+
+        return reply
+
+    # ------------------------------------------------------------------
+    # Local-mode handler — full local AI pipeline (standalone operation)
+    # ------------------------------------------------------------------
+
+    async def _handle_speech_local(self, text: str) -> str:
+        """
+        Full local pipeline: reasoning context → ChromaDB memory read →
+        Ollama/Groq LLM → ChromaDB write → FactExtractor → TTS.
+        Used when PRESENCE_HUB_URL is not set, or as fallback when the hub
+        is unreachable.
+        """
+        logger.info(f"[LocalMode] 🎤 Processing: '{text}'")
         try:
             llm_client = self.llm_client if hasattr(self, "llm_client") else getattr(self, "openai_client", None)
             if not self.reasoning_engine or not llm_client:
@@ -1404,24 +1508,24 @@ class VectorAgent:
                     except Exception as _fe:
                         logger.debug(f"Fact extraction skipped: {_fe}")
                 except Exception as exc:
-                    logger.warning(f"[WirePodBridge] DB save failed: {exc}")
+                    logger.warning(f"[LocalMode] DB save failed: {exc}")
 
-            # Update conversation state so follow-ups via AudioFeed (if it works) work too
+            # Update conversation state
             self.conversation_active = True
             self.last_interaction_time = datetime.now()
 
-            logger.info(f"[WirePodBridge] 🤖 Response: '{response}'")
+            logger.info(f"[LocalMode] 🤖 Response: '{response}'")
 
-            # Speak via our Italian gTTS (wire-pod will get " " back to avoid double-speak)
+            # Speak via our Italian gTTS
             if self.tts:
                 if self.audio_processor:
                     self.audio_processor.discard_pending_utterances()
                 await self.tts.speak(response)
-            
+
             return response
 
         except Exception as exc:
-            logger.error(f"[WirePodBridge] Error generating response: {exc}", exc_info=True)
+            logger.error(f"[LocalMode] Error generating response: {exc}", exc_info=True)
             return "Mi dispiace, si è verificato un errore."
 
     async def _handle_user_speech(self, text: str):
