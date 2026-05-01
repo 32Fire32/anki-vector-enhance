@@ -329,10 +329,17 @@ class OllamaClient:
                         f"\U0001f441\ufe0f VLM response: {len(content)} chars, {total_dur:.2f}s, "
                         f"prompt_tokens={prompt_eval}, eval_tokens={eval_count}"
                     )
-                    if total_dur < 1.0:
+                    # A prompt_eval_count of 0 means Ollama served the ENTIRE
+                    # request (including the image) from its KV cache without re-processing.
+                    # Speed alone is not a reliable indicator — llava:7b can be <1s when hot.
+                    if prompt_eval == 0 and eval_count > 0:
                         logger.warning(
-                            f"\U0001f441\ufe0f VLM suspiciously fast ({total_dur:.2f}s) — "
-                            f"image may not be processed. Full response keys: {list(data.keys())}"
+                            f"\U0001f441\ufe0f VLM KV-cache hit (prompt_eval=0, {total_dur:.2f}s) — "
+                            f"image was NOT re-processed. Add a unique suffix to the prompt to force fresh inference."
+                        )
+                    else:
+                        logger.debug(
+                            f"\U0001f441\ufe0f VLM timing OK: {total_dur:.2f}s, prompt_eval={prompt_eval}"
                         )
                     return content
         except asyncio.TimeoutError:

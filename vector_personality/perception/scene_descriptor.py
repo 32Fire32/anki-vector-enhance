@@ -378,6 +378,7 @@ class SceneDescriptor:
             except Exception as e:
                 logger.debug(f"👁️ Could not load visual memory from DB: {e}")
 
+        _null_frame_count = 0
         while self._running:
             try:
                 # Respect cooldown after Vector spoke
@@ -390,8 +391,12 @@ class SceneDescriptor:
 
                 frame = get_frame_fn()
                 if frame is None:
+                    _null_frame_count += 1
+                    if _null_frame_count == 1 or _null_frame_count % 10 == 0:
+                        logger.warning(f"👁️ Camera returned no frame (×{_null_frame_count}) — Vector may be disconnected")
                     await asyncio.sleep(self.interval)
                     continue
+                _null_frame_count = 0  # reset on successful frame
 
                 self.last_run_time = time.time()
                 comment = await self.scan_and_update_memory(frame)
